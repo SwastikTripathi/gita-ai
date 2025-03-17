@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
 import pandas as pd
-from sentence_transformers import SentenceTransformer
 import numpy as np
 from huggingface_hub import InferenceClient
 import os
@@ -10,25 +9,24 @@ app = Flask(__name__)
 
 # Hugging Face API Key
 HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable is not set")
 client = InferenceClient(token=HF_API_KEY)
 
-# Load Gita data
+# Load Gita data and precomputed embeddings
 gita_df = pd.read_csv('api/bhagwad_gita.csv')
-
-# Load Sentence Transformer model
-st_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-# Compute verse embeddings
-verse_meanings = gita_df['EngMeaning'].tolist()
-verse_embeddings = st_model.encode(verse_meanings, convert_to_tensor=False)
-verse_embeddings = np.array(verse_embeddings)
+verse_embeddings = np.load('api/verse_embeddings.npy')
 
 # In-memory conversation storage
 conversation_history = {}
 
-# Find the most relevant verse
+# Find the most relevant verse using Hugging Face Inference API for query embedding
 def get_most_relevant_verse(query):
-    query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+    # Use the Inference API to get the embedding for the query
+    query_embedding = client.feature_extraction(
+        inputs=query,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )[0]  # Get the first embedding vector
     similarities = np.dot(verse_embeddings, query_embedding) / (np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding))
     most_similar_idx = np.argmax(similarities)
     return gita_df.iloc[most_similar_idx]
@@ -38,18 +36,13 @@ def get_most_relevant_verse(query):
 def serve_index():
     return send_from_directory('../static', 'index.html')
 
-# Serve static files (images, etc.)
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory('static', path)
-
 # Handle chat
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         data = request.json
         query = data.get('message', '')
-        user_id = data.get('id', '')  # Unique ID from frontend
+        user_id = data.get('id', '')
         if not query or not user_id:
             return jsonify({"error": "No message or ID provided"}), 400
 
@@ -114,8 +107,8 @@ def chat():
         return jsonify({"response": formatted_response, "id": ai_id})
     
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+        print(f"Error in chat: {str(e)}")
+        return jsonify({"error": "Something went wrong on the server"}), 500
 
 # Update a message
 @app.route('/api/update_message', methods=['POST'])
@@ -135,11 +128,11 @@ def update_message():
             return jsonify({"error": "Message not found or not editable"}), 404
 
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+        print(f"Error in update_message: {str(e)}")
+        return jsonify({"error": "Something went wrong on the server"}), 500
 
 # Regenerate AI response after editing
-@app.route('/regenerate_after', methods=['POST'])
+@app.route('/api/regenerate_after', methods=['POST'])
 def regenerate_after():
     try:
         data = request.json
@@ -206,8 +199,8 @@ def regenerate_after():
         return jsonify({"response": formatted_response, "id": ai_id})
 
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+        print(f"Error in regenerate_after: {str(e)}")
+        return jsonify({"error": "Something went wrong on the server"}), 500
 
 # Clear conversation
 @app.route('/api/clear', methods=['POST'])
@@ -217,5 +210,5 @@ def clear_conversation():
         conversation_history = {}
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+        print(f"Error in clear_conversation: {str(e)}")
+        return jsonify({"error": "Something went wrong on the server"}), 500
