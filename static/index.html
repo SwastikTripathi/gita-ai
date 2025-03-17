@@ -546,8 +546,11 @@
                 box-shadow: none;
             }
         }
-                /* Waterdrop Button */
+        /* Waterdrop Button */
         #waterdrop-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             position: fixed;
             bottom: 10%; /* 10% above the bottom */
             right: 0; /* Extreme right when closed */
@@ -596,14 +599,15 @@
             word-wrap: break-word; /* Allow text to wrap */
         }
         .sliding-menu a {
-            color: var(--accent-blue);
+            color: var(--button-bg); /* Normally saffron from --button-bg */
             text-decoration: none;
-            font-size: 14px;
+            font-size: 12px; /* Matches the reduced font size */
             transition: color 0.3s ease;
-            word-wrap: break-word; /* Allow link text to wrap */
+            word-wrap: break-word;
         }
+        
         .sliding-menu a:hover {
-            color: var(--button-bg);
+            color: #E68A00; /* Darker saffron on hover */
         }
     </style>
 </head>
@@ -689,12 +693,13 @@
     <audio id="notification-sound" src="static/notification.mp3" preload="auto"></audio>
         
     <!-- Waterdrop Button -->
-    <button id="waterdrop-btn" title="Open Menu"></button>
+    <button id="waterdrop-btn" title="Support Me">
+        <img src="/static/img/coffee-cup.png" alt="Coffee Cup" style="width: 24px; height: 24px; vertical-align: middle;">
+    </button>
 
     <!-- Sliding Menu -->
     <div id="sliding-menu" class="sliding-menu">
-        <p>This AI was built for people to talk about their feelings<br>if you loved this app please share it with your friends</p>
-        <a href="{SLIDING_MENU_LINK_URL}" target="_blank">{SLIDING_MENU_LINK_TEXT}</a>
+        <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee</a>? I would love to hear your response</p>
     </div>
 
     <script>
