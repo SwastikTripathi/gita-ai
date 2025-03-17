@@ -546,6 +546,65 @@
                 box-shadow: none;
             }
         }
+                /* Waterdrop Button */
+        #waterdrop-btn {
+            position: fixed;
+            bottom: 10%; /* 10% above the bottom */
+            right: 0; /* Extreme right when closed */
+            width: 40px;
+            height: 40px;
+            background: var(--button-bg);
+            border: none;
+            border-radius: 50% 0 0 50%; /* Waterdrop shape, flat on right */
+            cursor: pointer;
+            z-index: 12;
+            transition: right 0.3s ease, transform 0.3s ease, background 0.3s ease;
+        }
+        #waterdrop-btn:hover {
+            background: #E68A00;
+            transform: scale(1.1);
+        }
+        [data-theme="dark"] #waterdrop-btn:hover {
+            background: #E68A00;
+        }
+
+        /* Sliding Menu */
+        .sliding-menu {
+            position: fixed;
+            bottom: 10%; /* Aligned with button */
+            right: -100%; /* Fully hidden offscreen initially */
+            background: var(--bg-color);
+            box-shadow: none; /* Remove shadow */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 11;
+            transition: right 0.3s ease;
+            border-radius: 8px 0 0 8px;
+            padding: 15px; /* Increased from 10px to 15px for more padding */
+            max-width: 30vw; /* Maximum width of 30% of viewport width */
+        }
+        .sliding-menu.open {
+            right: 0; /* Slides fully into view */
+        }
+        .sliding-menu p {
+            margin: 10px 0;
+            font-size: 14px;
+            color: var(--text-color);
+            text-align: center;
+            word-wrap: break-word; /* Allow text to wrap */
+        }
+        .sliding-menu a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+            word-wrap: break-word; /* Allow link text to wrap */
+        }
+        .sliding-menu a:hover {
+            color: var(--button-bg);
+        }
     </style>
 </head>
 <body>
@@ -628,6 +687,15 @@
     </div>
 
     <audio id="notification-sound" src="static/notification.mp3" preload="auto"></audio>
+        
+    <!-- Waterdrop Button -->
+    <button id="waterdrop-btn" title="Open Menu"></button>
+
+    <!-- Sliding Menu -->
+    <div id="sliding-menu" class="sliding-menu">
+        <p>This AI was built for people to talk about their feelings<br>if you loved this app please share it with your friends</p>
+        <a href="{SLIDING_MENU_LINK_URL}" target="_blank">{SLIDING_MENU_LINK_TEXT}</a>
+    </div>
 
     <script>
         let currentTypeInterval = null;
@@ -654,6 +722,31 @@
         const initialGreeting = document.getElementById('initial-greeting');
         const welcomeLine2 = document.getElementById('welcome-line2');
 
+                const waterdropBtn = document.getElementById('waterdrop-btn');
+        const slidingMenu = document.getElementById('sliding-menu');
+
+        waterdropBtn.addEventListener('click', () => {
+            const isOpen = slidingMenu.classList.contains('open');
+            const menuWidth = slidingMenu.offsetWidth; /* Dynamic width, respects max-width */
+            const buttonWidth = waterdropBtn.offsetWidth; /* Button width, typically 40px */
+
+            if (isOpen) {
+                slidingMenu.classList.remove('open');
+                waterdropBtn.style.right = '0'; /* Back to extreme right */
+            } else {
+                slidingMenu.classList.add('open');
+                waterdropBtn.style.right = `${menuWidth}px`; /* Aligns button’s right with menu’s left */
+            }
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!slidingMenu.contains(e.target) && !waterdropBtn.contains(e.target) && slidingMenu.classList.contains('open')) {
+                slidingMenu.classList.remove('open');
+                waterdropBtn.style.right = '0'; /* Reset button position */
+            }
+        });
+        
         // Function to determine time of day
         function getTimeOfDay() {
             const now = new Date();
