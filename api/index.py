@@ -23,24 +23,36 @@ conversation_history = {}
 # Find the most relevant verse using Hugging Face Inference API for query embedding
 def get_most_relevant_verse(query):
     try:
+        # Log input query
+        print(f"Processing query: {query}")
+        
         # Get query embedding from Hugging Face Inference API
         query_embedding = client.feature_extraction(
             text=query,
             model="sentence-transformers/all-MiniLM-L6-v2"
         )[0]  # Take the first embedding
-
-        # Ensure query_embedding is a 1D array of shape (384,)
         query_embedding = np.array(query_embedding).flatten()
+        
+        # Log shapes and sample values
         print(f"Query embedding shape: {query_embedding.shape}")
+        print(f"Query embedding sample: {query_embedding[:5]}")
         print(f"Verse embeddings shape: {verse_embeddings.shape}")
-
+        print(f"Verse embeddings sample: {verse_embeddings[0][:5]}")
+        
         # Compute cosine similarity
         dot_product = np.dot(verse_embeddings, query_embedding)  # Shape: (701,)
         verse_norms = np.linalg.norm(verse_embeddings, axis=1)   # Shape: (701,)
         query_norm = np.linalg.norm(query_embedding)             # Scalar
         similarities = dot_product / (verse_norms * query_norm + 1e-8)  # Avoid division by zero
+        
+        # Log similarity stats
+        print(f"Similarities shape: {similarities.shape}")
+        print(f"Similarities sample: {similarities[:5]}")
+        print(f"Max similarity: {np.max(similarities)}, Min similarity: {np.min(similarities)}")
+        
         most_similar_idx = np.argmax(similarities)
-
+        print(f"Most similar index: {most_similar_idx}")
+        
         return gita_df.iloc[most_similar_idx]
     except Exception as e:
         print(f"Error in get_most_relevant_verse: {str(e)}")
@@ -63,6 +75,7 @@ def chat():
 
         # Store user message in history
         conversation_history[user_id] = {"role": "user", "content": query}
+        print(f"Stored user message: {query}, ID: {user_id}")
 
         if query.endswith('?'):
             # Gita quote logic
@@ -80,6 +93,7 @@ def chat():
                 f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
                 f"Format your response in Markdown."
             )
+            print(f"Sending prompt to HF: {prompt[:100]}...")  # Truncate for brevity
             
             response = client.text_generation(
                 prompt=prompt,
@@ -89,6 +103,7 @@ def chat():
                 top_p=0.9,
                 repetition_penalty=1.1
             )
+            print(f"HF response: {response[:50]}...")  # Truncate for brevity
             
             explanation = response.strip()
             formatted_response = (
@@ -103,6 +118,7 @@ def chat():
                 f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                 f"Format your response in Markdown."
             )
+            print(f"Sending prompt to HF: {prompt}")
             
             response = client.text_generation(
                 prompt=prompt,
@@ -112,12 +128,14 @@ def chat():
                 top_p=0.9,
                 repetition_penalty=1.1
             )
+            print(f"HF response: {response}")
             
             formatted_response = response.strip()
 
         # Store AI response in history with a new ID
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
+        print(f"Stored AI response, ID: {ai_id}")
 
         return jsonify({"response": formatted_response, "id": ai_id})
     
@@ -138,6 +156,7 @@ def update_message():
 
         if message_id in conversation_history and conversation_history[message_id]["role"] == "user":
             conversation_history[message_id]["content"] = new_content
+            print(f"Updated message ID {message_id} to: {new_content}")
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Message not found or not editable"}), 404
@@ -157,6 +176,7 @@ def regenerate_after():
             return jsonify({"error": "Invalid or missing user message ID"}), 400
 
         query = conversation_history[user_id]["content"]
+        print(f"Regenerating for query: {query}")
 
         if query.endswith('?'):
             relevant_verse = get_most_relevant_verse(query)
@@ -173,6 +193,7 @@ def regenerate_after():
                 f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
                 f"Format your response in Markdown."
             )
+            print(f"Sending prompt to HF: {prompt[:100]}...")
             
             response = client.text_generation(
                 prompt=prompt,
@@ -182,6 +203,7 @@ def regenerate_after():
                 top_p=0.9,
                 repetition_penalty=1.1
             )
+            print(f"HF response: {response[:50]}...")
             
             explanation = response.strip()
             formatted_response = (
@@ -195,6 +217,7 @@ def regenerate_after():
                 f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                 f"Format your response in Markdown."
             )
+            print(f"Sending prompt to HF: {prompt}")
             
             response = client.text_generation(
                 prompt=prompt,
@@ -204,12 +227,14 @@ def regenerate_after():
                 top_p=0.9,
                 repetition_penalty=1.1
             )
+            print(f"HF response: {response}")
             
             formatted_response = response.strip()
 
         # Update AI response in history
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
+        print(f"Stored regenerated AI response, ID: {ai_id}")
 
         return jsonify({"response": formatted_response, "id": ai_id})
 
@@ -223,6 +248,7 @@ def clear_conversation():
     try:
         global conversation_history
         conversation_history = {}
+        print("Conversation history cleared")
         return jsonify({"success": True})
     except Exception as e:
         print(f"Error in clear_conversation: {str(e)}")
