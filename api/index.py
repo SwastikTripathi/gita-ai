@@ -1,5 +1,6 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -7,13 +8,16 @@ from huggingface_hub import InferenceClient
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS to allow requests from Vercel frontend
 
-# Hugging Face API Key
+# Hugging Face API Key from environment variable
 HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable not set")
 client = InferenceClient(token=HF_API_KEY)
 
-# Load Gita data
-gita_df = pd.read_csv('bhagwad_gita.csv')
+# Load Gita data (assumed to be in root directory)
+gita_df = pd.read_csv('../bhagwad_gita.csv')
 
 # Load Sentence Transformer model
 st_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -32,16 +36,6 @@ def get_most_relevant_verse(query):
     similarities = np.dot(verse_embeddings, query_embedding) / (np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding))
     most_similar_idx = np.argmax(similarities)
     return gita_df.iloc[most_similar_idx]
-
-# Serve the frontend
-@app.route('/')
-def serve_index():
-    return send_from_directory('static', 'index.html')
-
-# Serve static files (images, etc.)
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory('static', path)
 
 # Handle chat
 @app.route('/chat', methods=['POST'])
@@ -221,4 +215,5 @@ def clear_conversation():
         return jsonify({"error": "Something went wrong"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Use PORT env var if set (common in hosting platforms)
+    app.run(host='0.0.0.0', port=port, debug=False)  # Run on 0.0.0.0 for external access
