@@ -1,7 +1,5 @@
-flask
-flask-cors
-pandas
-sentence-transformers
-numpy
-huggingface_hub
-gunicorn
+Flask==3.0.3
+pandas==2.2.2
+sentence-transformers==2.7.0
+huggingface_hub==0.23.0
+numpy==1.26.4
