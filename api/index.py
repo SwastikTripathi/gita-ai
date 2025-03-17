@@ -22,14 +22,29 @@ conversation_history = {}
 
 # Find the most relevant verse using Hugging Face Inference API for query embedding
 def get_most_relevant_verse(query):
-    # Use the Inference API to get the embedding for the query
-    query_embedding = client.feature_extraction(
-        text=query,  # Changed from 'inputs' to 'text'
-        model="sentence-transformers/all-MiniLM-L6-v2"
-    )[0]  # Get the first embedding vector
-    similarities = np.dot(verse_embeddings, query_embedding) / (np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding))
-    most_similar_idx = np.argmax(similarities)
-    return gita_df.iloc[most_similar_idx]
+    try:
+        # Get query embedding from Hugging Face Inference API
+        query_embedding = client.feature_extraction(
+            text=query,
+            model="sentence-transformers/all-MiniLM-L6-v2"
+        )[0]  # Take the first embedding
+
+        # Ensure query_embedding is a 1D array of shape (384,)
+        query_embedding = np.array(query_embedding).flatten()
+        print(f"Query embedding shape: {query_embedding.shape}")
+        print(f"Verse embeddings shape: {verse_embeddings.shape}")
+
+        # Compute cosine similarity
+        dot_product = np.dot(verse_embeddings, query_embedding)  # Shape: (701,)
+        verse_norms = np.linalg.norm(verse_embeddings, axis=1)   # Shape: (701,)
+        query_norm = np.linalg.norm(query_embedding)             # Scalar
+        similarities = dot_product / (verse_norms * query_norm + 1e-8)  # Avoid division by zero
+        most_similar_idx = np.argmax(similarities)
+
+        return gita_df.iloc[most_similar_idx]
+    except Exception as e:
+        print(f"Error in get_most_relevant_verse: {str(e)}")
+        raise
 
 # Serve the frontend
 @app.route('/')
