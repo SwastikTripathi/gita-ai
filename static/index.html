@@ -931,7 +931,7 @@
                     userInput.focus();
                     document.getElementById('notification-sound').play();
                 }
-            }, 15);
+            }, 3);
         }
 
         sendButton.addEventListener('click', () => sendMessage('user'));
@@ -1075,7 +1075,7 @@
                                             userInput.focus();
                                             document.getElementById('notification-sound').play();
                                         }
-                                    }, 15);
+                                    }, 3);
                                 }).catch(error => {
                                     clearInterval(typingInterval);
                                     conversationDiv.removeChild(typingIndicatorWrapper);
