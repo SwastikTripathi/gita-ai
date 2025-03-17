@@ -1,23 +1,19 @@
-import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from huggingface_hub import InferenceClient
+import os
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS to allow requests from Vercel frontend
 
-# Hugging Face API Key from environment variable
+# Hugging Face API Key
 HF_API_KEY = os.environ.get("HF_API_KEY")
-if not HF_API_KEY:
-    raise ValueError("HF_API_KEY environment variable not set")
 client = InferenceClient(token=HF_API_KEY)
 
-# Load Gita data (assumed to be in root directory)
-gita_df = pd.read_csv('../bhagwad_gita.csv')
+# Load Gita data
+gita_df = pd.read_csv('api/bhagwad_gita.csv')
 
 # Load Sentence Transformer model
 st_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -37,8 +33,18 @@ def get_most_relevant_verse(query):
     most_similar_idx = np.argmax(similarities)
     return gita_df.iloc[most_similar_idx]
 
+# Serve the frontend
+@app.route('/')
+def serve_index():
+    return send_from_directory('../static', 'index.html')
+
+# Serve static files (images, etc.)
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
+
 # Handle chat
-@app.route('/chat', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         data = request.json
@@ -112,7 +118,7 @@ def chat():
         return jsonify({"error": "Something went wrong"}), 500
 
 # Update a message
-@app.route('/update_message', methods=['POST'])
+@app.route('/api/update_message', methods=['POST'])
 def update_message():
     try:
         data = request.json
@@ -204,7 +210,7 @@ def regenerate_after():
         return jsonify({"error": "Something went wrong"}), 500
 
 # Clear conversation
-@app.route('/clear', methods=['POST'])
+@app.route('/api/clear', methods=['POST'])
 def clear_conversation():
     try:
         global conversation_history
@@ -213,7 +219,3 @@ def clear_conversation():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Use PORT env var if set (common in hosting platforms)
-    app.run(host='0.0.0.0', port=port, debug=False)  # Run on 0.0.0.0 for external access
