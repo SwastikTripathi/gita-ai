@@ -177,7 +177,7 @@
             border-radius: 12px;
             font-size: 14px;
             background: var(--input-bg);
-            color: var(--text-color);
+            color: var(--text-color); /* Changed from --input-text to match theme */
             resize: none;
             overflow: hidden;
             height: 60px;
@@ -210,7 +210,7 @@
             vertical-align: middle;
         }
         #initial-send-button:hover {
-            background: #E68A00;
+            background: #E68A00; /* Darker saffron for hover */
         }
         [data-theme="dark"] #initial-send-button:hover {
             background: #E68A00;
@@ -225,7 +225,7 @@
             display: flex;
             justify-content: center;
             gap: 10px;
-            flex-wrap: wrap;
+            flex-wrap: wrap; /* Allow wrapping for smaller screens */
         }
         .prompt-btn {
             padding: 10px 20px;
@@ -251,7 +251,7 @@
             color: var(--button-text);
         }
         [data-theme="dark"] .prompt-btn:hover {
-            background: #E68A00;
+            background: #E68A00; /* Darker saffron for dark mode hover */
         }
         #conversation {
             flex-grow: 1;
@@ -355,7 +355,7 @@
             border: 1px solid var(--input-border);
             border-radius: 6px;
             background: var(--input-bg);
-            color: var(--text-color);
+            color: var(--text-color); /* Changed from --input-text */
             font-size: 14px;
             resize: none;
             overflow: hidden;
@@ -393,7 +393,7 @@
             border-radius: 12px;
             font-size: 14px;
             background: var(--input-bg);
-            color: var(--text-color);
+            color: var(--text-color); /* Changed from --input-text */
             resize: none;
             overflow: hidden;
             min-height: 30px;
@@ -427,7 +427,7 @@
             vertical-align: middle;
         }
         #send-button:hover {
-            background: #E68A00;
+            background: #E68A00; /* Darker saffron for hover */
         }
         [data-theme="dark"] #send-button:hover {
             background: #E68A00;
@@ -550,14 +550,14 @@
 </head>
 <body>
     <div class="navbar">
-        <a style="color: var(--text-color); text-decoration: none;" href="/">
+        <a style="color: var(--text-color); text-decoration: none;" href="#">
             <div class="brand">
                 <span class="logo"></span> Bhagavad Gita AI
             </div>
         </a>
         <div class="icons">
-            <button class="help-btn" id="help-btn" title="Help"><img src="/img/help-dark.png" alt="Help"></button>
-            <button class="clear-btn" id="clear-btn" title="Clear Conversation"><img src="/img/new-dark.png" alt="Clear"></button>
+            <button class="help-btn" id="help-btn" title="Help"><img src="/static/img/help-dark.png" alt="Help"></button>
+            <button class="clear-btn" id="clear-btn" title="Clear Conversation"><img src="/static/img/new-dark.png" alt="Clear"></button>
             <button id="theme-toggle-btn" class="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="1em" height="1em" class="theme-toggle__simple" fill="currentColor" viewBox="0 0 32 32">
                     <clipPath id="theme-toggle__simple__cutout">
@@ -577,13 +577,15 @@
             <h1 class="welcome-line2" id="welcome-line2">How can I help you this morning?</h1>
             <div class="initial-input-container">
                 <textarea id="initial-input" placeholder="Ask a question..."></textarea>
-                <button id="initial-send-button" title="Send"><img src="/img/arrow-dark.png" alt="Send"></button>
+                <button id="initial-send-button" title="Send"><img src="/static/img/arrow-dark.png" alt="Send"></button>
             </div>
             <div class="prompt-buttons">
                 <div class="row">
                     <button class="prompt-btn" onclick="setPrompt('What is the purpose of life?')">What is the purpose of life?</button>
                     <button class="prompt-btn" onclick="setPrompt('How can I find peace?')">How can I find peace?</button>
                     <button class="prompt-btn" onclick="setPrompt('What is true happiness?')">What is true happiness?</button>
+                    </div>
+                <div class="row">
                     <button class="prompt-btn" onclick="setPrompt('How to overcome fear?')">How to overcome fear?</button>
                     <button class="prompt-btn" onclick="setPrompt('What is my duty?')">What is my duty?</button>
                 </div>
@@ -599,7 +601,7 @@
         </div>
         <div id="input-area" class="input-area">
             <textarea id="user-input" placeholder="Ask a question..."></textarea>
-            <button id="send-button" title="Send"><img src="/img/arrow-dark.png" alt="Send"></button>
+            <button id="send-button" title="Send"><img src="/static/img/arrow-dark.png" alt="Send"></button>
         </div>
     </div>
     <div class="version-label">Bhagavad Gita AI v1.0</div>
@@ -625,15 +627,12 @@
         </div>
     </div>
 
-    <audio id="notification-sound" src="/notification.mp3" preload="auto"></audio>
+    <audio id="notification-sound" src="static/notification.mp3" preload="auto"></audio>
 
     <script>
         let currentTypeInterval = null;
         let currentFetchController = null;
         let currentRotation = 0;
-
-        // Replace with your deployed backend URL (e.g., from Render)
-        const API_BASE_URL = 'https://your-backend.onrender.com'; // Update this after deploying backend
 
         const initialInput = document.getElementById('initial-input');
         const initialSendButton = document.getElementById('initial-send-button');
@@ -655,6 +654,7 @@
         const initialGreeting = document.getElementById('initial-greeting');
         const welcomeLine2 = document.getElementById('welcome-line2');
 
+        // Function to determine time of day
         function getTimeOfDay() {
             const now = new Date();
             const hours = now.getHours();
@@ -664,11 +664,13 @@
             else return "night";
         }
 
+        // Set welcome message with time of day
         function setWelcomeMessage() {
             const timeOfDay = getTimeOfDay();
             welcomeLine2.textContent = `How can I help you this ${timeOfDay}?`;
         }
 
+        // Set prompt in initial input and trigger send
         function setPrompt(prompt) {
             initialInput.value = prompt;
             sendMessage('initial');
@@ -709,7 +711,7 @@
                 currentFetchController.abort();
                 currentFetchController = null;
             }
-            sendButtonImg.src = '/img/arrow-dark.png';
+            sendButtonImg.src = '/static/img/arrow-dark.png';
             sendButtonImg.alt = 'Send';
             scrollToBottom();
             userInput.focus();
@@ -743,7 +745,7 @@
             const editBtn = document.createElement('button');
             editBtn.className = 'edit-btn';
             const editImg = document.createElement('img');
-            editImg.src = document.documentElement.getAttribute('data-theme') === 'dark' ? '/img/edit-light.png' : '/img/edit-dark.png';
+            editImg.src = document.documentElement.getAttribute('data-theme') === 'dark' ? '/static/img/edit-light.png' : '/static/img/edit-dark.png';
             editImg.alt = 'Edit';
             editBtn.appendChild(editImg);
             userMessageWrapper.appendChild(editBtn);
@@ -765,7 +767,7 @@
             typingIndicatorWrapper.appendChild(typingIndicator);
             conversationDiv.appendChild(typingIndicatorWrapper);
             scrollToBottom();
-            sendButtonImg.src = '/img/stop-dark.png';
+            sendButtonImg.src = '/static/img/stop-dark.png';
             sendButtonImg.alt = 'Stop';
 
             let dots = 0;
@@ -777,21 +779,19 @@
             currentFetchController = new AbortController();
             let data;
             try {
-                const response = await fetch(`${API_BASE_URL}/chat`, {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: message, id: userId }),
                     signal: currentFetchController.signal
                 });
-                if (!response.ok) throw new Error('Network response was not ok');
                 data = await response.json();
             } catch (error) {
                 clearInterval(typingInterval);
                 conversationDiv.removeChild(typingIndicatorWrapper);
-                sendButtonImg.src = '/img/arrow-dark.png';
+                sendButtonImg.src = '/static/img/arrow-dark.png';
                 sendButtonImg.alt = 'Send';
                 userInput.focus();
-                console.error('Fetch error:', error);
                 return;
             }
             clearInterval(typingInterval);
@@ -832,7 +832,7 @@
                     clearInterval(currentTypeInterval);
                     currentTypeInterval = null;
                     aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                    sendButtonImg.src = '/img/arrow-dark.png';
+                    sendButtonImg.src = '/static/img/arrow-dark.png';
                     sendButtonImg.alt = 'Send';
                     if (autoScroll) scrollToBottom();
                     userInput.focus();
@@ -892,7 +892,7 @@
                     else input.style.overflowY = 'hidden';
                 });
 
-                input.addEventListener('keydown', async (e) => {
+                input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         const newText = input.value.trim();
@@ -916,7 +916,7 @@
                             typingIndicatorWrapper.appendChild(typingIndicator);
                             conversationDiv.appendChild(typingIndicatorWrapper);
                             scrollToBottom();
-                            sendButtonImg.src = '/img/stop-dark.png';
+                            sendButtonImg.src = '/static/img/stop-dark.png';
                             sendButtonImg.alt = 'Stop';
 
                             let dots = 0;
@@ -927,74 +927,70 @@
 
                             currentFetchController = new AbortController();
 
-                            try {
-                                await fetch(`${API_BASE_URL}/update_message`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
-                                });
-
-                                const response = await fetch(`${API_BASE_URL}/regenerate_after`, {
+                            fetch('/api/update_message', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
+                            }).then(() => {
+                                fetch('/api/regenerate_after', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ id: wrapper.dataset.id }),
                                     signal: currentFetchController.signal
+                                }).then(response => response.json()).then(data => {
+                                    clearInterval(typingInterval);
+                                    conversationDiv.removeChild(typingIndicatorWrapper);
+
+                                    const aiMessageWrapper = document.createElement('div');
+                                    aiMessageWrapper.className = 'message-wrapper ai';
+                                    aiMessageWrapper.dataset.id = data.id;
+                                    const aiMessage = document.createElement('div');
+                                    aiMessage.className = 'message ai';
+                                    const textSpan = document.createElement('span');
+                                    textSpan.className = 'text';
+                                    const cursorSpan = document.createElement('span');
+                                    cursorSpan.className = 'cursor';
+                                    cursorSpan.textContent = '|';
+                                    textSpan.appendChild(cursorSpan);
+                                    aiMessage.appendChild(textSpan);
+                                    aiMessageWrapper.appendChild(aiMessage);
+                                    conversationDiv.appendChild(aiMessageWrapper);
+
+                                    const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
+                                    let i = 0;
+                                    const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
+                                    let autoScroll = isAtBottom;
+                                    const scrollListener = () => {
+                                        autoScroll = false;
+                                        conversationDiv.removeEventListener('scroll', scrollListener);
+                                    };
+                                    conversationDiv.addEventListener('scroll', scrollListener);
+
+                                    currentTypeInterval = setInterval(() => {
+                                        if (i < fullResponse.length) {
+                                            textSpan.textContent = fullResponse.slice(0, i + 1);
+                                            textSpan.appendChild(cursorSpan);
+                                            i++;
+                                            if (autoScroll) scrollToBottom();
+                                        } else {
+                                            clearInterval(currentTypeInterval);
+                                            currentTypeInterval = null;
+                                            aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
+                                            sendButtonImg.src = '/static/img/arrow-dark.png';
+                                            sendButtonImg.alt = 'Send';
+                                            if (autoScroll) scrollToBottom();
+                                            userInput.focus();
+                                            document.getElementById('notification-sound').play();
+                                        }
+                                    }, 15);
+                                }).catch(error => {
+                                    clearInterval(typingInterval);
+                                    conversationDiv.removeChild(typingIndicatorWrapper);
+                                    sendButtonImg.src = '/static/img/arrow-dark.png';
+                                    sendButtonImg.alt = 'Send';
+                                    userInput.focus();
                                 });
-                                const data = await response.json();
-
-                                clearInterval(typingInterval);
-                                conversationDiv.removeChild(typingIndicatorWrapper);
-
-                                const aiMessageWrapper = document.createElement('div');
-                                aiMessageWrapper.className = 'message-wrapper ai';
-                                aiMessageWrapper.dataset.id = data.id;
-                                const aiMessage = document.createElement('div');
-                                aiMessage.className = 'message ai';
-                                const textSpan = document.createElement('span');
-                                textSpan.className = 'text';
-                                const cursorSpan = document.createElement('span');
-                                cursorSpan.className = 'cursor';
-                                cursorSpan.textContent = '|';
-                                textSpan.appendChild(cursorSpan);
-                                aiMessage.appendChild(textSpan);
-                                aiMessageWrapper.appendChild(aiMessage);
-                                conversationDiv.appendChild(aiMessageWrapper);
-
-                                const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
-                                let i = 0;
-                                const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
-                                let autoScroll = isAtBottom;
-                                const scrollListener = () => {
-                                    autoScroll = false;
-                                    conversationDiv.removeEventListener('scroll', scrollListener);
-                                };
-                                conversationDiv.addEventListener('scroll', scrollListener);
-
-                                currentTypeInterval = setInterval(() => {
-                                    if (i < fullResponse.length) {
-                                        textSpan.textContent = fullResponse.slice(0, i + 1);
-                                        textSpan.appendChild(cursorSpan);
-                                        i++;
-                                        if (autoScroll) scrollToBottom();
-                                    } else {
-                                        clearInterval(currentTypeInterval);
-                                        currentTypeInterval = null;
-                                        aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                                        sendButtonImg.src = '/img/arrow-dark.png';
-                                        sendButtonImg.alt = 'Send';
-                                        if (autoScroll) scrollToBottom();
-                                        userInput.focus();
-                                        document.getElementById('notification-sound').play();
-                                    }
-                                }, 15);
-                            } catch (error) {
-                                clearInterval(typingInterval);
-                                conversationDiv.removeChild(typingIndicatorWrapper);
-                                sendButtonImg.src = '/img/arrow-dark.png';
-                                sendButtonImg.alt = 'Send';
-                                userInput.focus();
-                                console.error('Edit fetch error:', error);
-                            }
+                            });
                         } else {
                             textDiv.textContent = currentText;
                             messageDiv.appendChild(timestampSpan);
@@ -1028,7 +1024,7 @@
 
         function clearConversation() {
             stopGeneration();
-            fetch(`${API_BASE_URL}/clear`, { method: 'POST' });
+            fetch('/api/clear', { method: 'POST' });
             conversationDiv.innerHTML = '';
             initialScreen.style.display = 'flex';
             conversationDiv.style.display = 'none';
@@ -1038,11 +1034,11 @@
                 currentRotation -= modAngle;
                 sendButton.style.transform = `rotate(${currentRotation}deg)`;
             }
-            sendButtonImg.src = '/img/arrow-dark.png';
+            sendButtonImg.src = '/static/img/arrow-dark.png';
             sendButtonImg.alt = 'Send';
             scrollToBottom();
             modal.style.display = 'none';
-            setWelcomeMessage();
+            setWelcomeMessage(); // Reset welcome message on clear
             initialInput.focus();
         }
 
@@ -1059,15 +1055,15 @@
             if (themeToggle.classList.contains('theme-toggle--toggled')) {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
-                clearBtnImg.src = '/img/new-light.png';
-                helpBtnImg.src = '/img/help-light.png';
-                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/img/edit-light.png');
+                clearBtnImg.src = '/static/img/new-light.png';
+                helpBtnImg.src = '/static/img/help-light.png';
+                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
             } else {
                 document.documentElement.setAttribute('data-theme', 'light');
                 localStorage.setItem('theme', 'light');
-                clearBtnImg.src = '/img/new-dark.png';
-                helpBtnImg.src = '/img/help-dark.png';
-                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/img/edit-dark.png');
+                clearBtnImg.src = '/static/img/new-dark.png';
+                helpBtnImg.src = '/static/img/help-dark.png';
+                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
             }
             updateNavbarBorderPosition();
         });
@@ -1076,11 +1072,11 @@
         document.documentElement.setAttribute('data-theme', currentTheme);
         if (currentTheme === 'dark') {
             themeToggle.classList.add('theme-toggle--toggled');
-            clearBtnImg.src = '/img/new-light.png';
-            helpBtnImg.src = '/img/help-light.png';
+            clearBtnImg.src = '/static/img/new-light.png';
+            helpBtnImg.src = '/static/img/help-light.png';
         } else {
-            clearBtnImg.src = '/img/new-dark.png';
-            helpBtnImg.src = '/img/help-dark.png';
+            clearBtnImg.src = '/static/img/new-dark.png';
+            helpBtnImg.src = '/static/img/help-dark.png';
         }
 
         helpBtn.addEventListener('click', () => {
@@ -1097,7 +1093,7 @@
         window.addEventListener('resize', updateNavbarBorderPosition);
 
         scrollToBottom();
-        setWelcomeMessage();
+        setWelcomeMessage(); // Set initial welcome message
 
         window.addEventListener('load', () => {
             setTimeout(() => {
