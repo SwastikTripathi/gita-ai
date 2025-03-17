@@ -27,15 +27,21 @@ def get_most_relevant_verse(query):
         print(f"Processing query: {query}")
         
         # Get query embedding from Hugging Face Inference API
-        query_embedding = client.feature_extraction(
+        raw_embedding = client.feature_extraction(
             text=query,
             model="sentence-transformers/all-MiniLM-L6-v2"
-        )[0]  # Take the first embedding
-        query_embedding = np.array(query_embedding).flatten()
+        )
+        print(f"Raw embedding: {raw_embedding[:5]}")  # Log first few elements
         
-        # Log shapes and sample values
-        print(f"Query embedding shape: {query_embedding.shape}")
+        # Ensure query_embedding is a 1D array of shape (384,)
+        query_embedding = np.array(raw_embedding).flatten()
+        print(f"Query embedding shape after flatten: {query_embedding.shape}")
         print(f"Query embedding sample: {query_embedding[:5]}")
+        
+        if query_embedding.shape[0] != 384:
+            raise ValueError(f"Expected query embedding shape (384,), got {query_embedding.shape}")
+        
+        # Log verse embeddings info
         print(f"Verse embeddings shape: {verse_embeddings.shape}")
         print(f"Verse embeddings sample: {verse_embeddings[0][:5]}")
         
