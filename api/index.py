@@ -24,7 +24,7 @@ conversation_history = {}
 def get_most_relevant_verse(query):
     # Use the Inference API to get the embedding for the query
     query_embedding = client.feature_extraction(
-        inputs=query,
+        text=query,  # Changed from 'inputs' to 'text'
         model="sentence-transformers/all-MiniLM-L6-v2"
     )[0]  # Get the first embedding vector
     similarities = np.dot(verse_embeddings, query_embedding) / (np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding))
