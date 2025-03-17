@@ -1,0 +1,7 @@
+flask
+flask-cors
+pandas
+sentence-transformers
+numpy
+huggingface_hub
+gunicorn
