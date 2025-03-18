@@ -1,110 +1,75 @@
 from flask import Flask, request, jsonify, send_from_directory
 import pandas as pd
-import requests
-import json
+import numpy as np
+from huggingface_hub import InferenceClient
 import os
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Load ARLIAI API key securely from an environment variable
-ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
-if not ARLIAI_API_KEY:
-    raise ValueError("ARLIAI_API_KEY environment variable is not set")
-API_URL = "https://api.arliai.com/v1/chat/completions"
+# Hugging Face API Key
+HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable is not set")
+client = InferenceClient(token=HF_API_KEY)
 
-def generate_text(prompt, model):
-    """
-    Calls the ARLIAI API directly and returns the generated text.
-    Since parameters are configured on the website, we only pass the prompt and model.
-    """
-    payload = json.dumps({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        "stream": False
-    })
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f"Bearer {ARLIAI_API_KEY}"
-    }
-    try:
-        response = requests.post(API_URL, headers=headers, data=payload)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        response_json = response.json()
-        generated_text = response_json["choices"][0]["message"]["content"]
-        return generated_text.strip()
-    except Exception as e:
-        print(f"API Error: {str(e)}")
-        return "I'm having trouble processing that right now. Please try again."
-
-# Load Bhagavad Gita data from CSV
+# Load Gita data and precomputed embeddings
 gita_df = pd.read_csv('api/bhagwad_gita.csv')
+verse_embeddings = np.load('api/verse_embeddings.npy')
 
-# In-memory conversation storage (for production, consider a persistent DB)
+# In-memory conversation storage
 conversation_history = {}
 
+# Find the most relevant verse using Hugging Face Inference API for query embedding
 def get_most_relevant_verse(query):
-    """Return the most relevant verse row from the Bhagavad Gita based on the query using ARLIAI API."""
-    verse_meanings = gita_df['EngMeaning'].tolist()
-    # Limit the number of verses sent to avoid exceeding token limits; take a sample if too large
-    max_verses = 50  # Adjust based on API token limits
-    sampled_meanings = verse_meanings[:max_verses] if len(verse_meanings) > max_verses else verse_meanings
-    
-    prompt = (
-        f"Given the user query: '{query}'\n\n"
-        "And the following list of verse meanings from the Bhagavad Gita:\n"
-        f"{json.dumps(sampled_meanings, indent=2)}\n\n"
-        "Return the index (0-based) of the verse meaning that is most semantically relevant to the query. "
-        "Respond with only the integer index."
-    )
-    response = generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1")
     try:
-        index = int(response.strip())
-        if 0 <= index < len(gita_df):
-            return gita_df.iloc[index]
-        else:
-            print(f"Invalid index returned: {index}")
-            return gita_df.iloc[0]  # Fallback to first verse
-    except ValueError as e:
-        print(f"Error parsing index: {str(e)}, response: {response}")
-        return gita_df.iloc[0]  # Fallback to first verse
+        # Log input query
+        print(f"Processing query: {query}")
+        
+        # Get query embedding from Hugging Face Inference API
+        raw_embedding = client.feature_extraction(
+            text=query,
+            model="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        print(f"Raw embedding: {raw_embedding[:5]}")  # Log first few elements
+        
+        # Ensure query_embedding is a 1D array of shape (384,)
+        query_embedding = np.array(raw_embedding).flatten()
+        print(f"Query embedding shape after flatten: {query_embedding.shape}")
+        print(f"Query embedding sample: {query_embedding[:5]}")
+        
+        if query_embedding.shape[0] != 384:
+            raise ValueError(f"Expected query embedding shape (384,), got {query_embedding.shape}")
+        
+        # Log verse embeddings info
+        print(f"Verse embeddings shape: {verse_embeddings.shape}")
+        print(f"Verse embeddings sample: {verse_embeddings[0][:5]}")
+        
+        # Compute cosine similarity
+        dot_product = np.dot(verse_embeddings, query_embedding)  # Shape: (701,)
+        verse_norms = np.linalg.norm(verse_embeddings, axis=1)   # Shape: (701,)
+        query_norm = np.linalg.norm(query_embedding)             # Scalar
+        similarities = dot_product / (verse_norms * query_norm + 1e-8)  # Avoid division by zero
+        
+        # Log similarity stats
+        print(f"Similarities shape: {similarities.shape}")
+        print(f"Similarities sample: {similarities[:5]}")
+        print(f"Max similarity: {np.max(similarities)}, Min similarity: {np.min(similarities)}")
+        
+        most_similar_idx = np.argmax(similarities)
+        print(f"Most similar index: {most_similar_idx}")
+        
+        return gita_df.iloc[most_similar_idx]
+    except Exception as e:
+        print(f"Error in get_most_relevant_verse: {str(e)}")
+        raise
 
-def is_guidance_query(query):
-    """Determine if the user's query is seeking guidance, advice, or wisdom."""
-    guidance_keywords = ['guidance', 'insight', 'help', 'advice', 'confused', 'lost', 'question']
-    if any(keyword in query.lower() for keyword in guidance_keywords) or query.strip().endswith('?'):
-        return True
-    return False
-
-def get_guidance_response(query):
-    relevant_verse = get_most_relevant_verse(query)
-    shloka = relevant_verse['Shloka']
-    transliteration = relevant_verse['Transliteration']
-    
-    prompt = (
-        f"User query: {query}\n\n"
-        "Please respond in Markdown with the following structure:\n\n"
-        "1. Begin with one or two empathetic lines acknowledging that many feel similar emotions, without repeating the user's query.\n"
-        "2. On a new line, display the following Hindi shlok as a bold, indented block (using a blockquote) with no label. Format it as:\n"
-        "   > **[Hindi Shlok]**\n"
-        f"   **{shloka}**\n\n"
-        "3. Next, output the transliteration on two separate lines. If the transliteration text contains a vertical bar ('|'), split the text at the vertical bar so that the part before the bar appears on the first line and the part after appears on the second line. Do not include any label before the transliteration.\n"
-        "4. Insert two line breaks after the transliteration.\n"
-        "5. Finally, provide a detailed explanation in one to three paragraphs that explains the context of the verse, what it is trying to say, and how it relates to the user's query. Use modern-day examples to reinforce the teaching. Ensure that each paragraph is separated by two line breaks.\n\n"
-        "Do not include any horizontal lines or additional formatting markers."
-    )
-    
-    response = generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1")
-    explanation = response.strip()
-    return explanation
-
+# Serve the frontend
 @app.route('/')
 def serve_index():
     return send_from_directory('../static', 'index.html')
 
+# Handle chat
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
@@ -114,37 +79,90 @@ def chat():
         if not query or not user_id:
             return jsonify({"error": "No message or ID provided"}), 400
 
+        # Store user message in history
         conversation_history[user_id] = {"role": "user", "content": query}
+        print(f"Stored user message: {query}, ID: {user_id}")
 
-        if is_guidance_query(query):
-            formatted_response = get_guidance_response(query)
-        else:
+        if query.endswith('?'):
+            # Gita quote logic
+            relevant_verse = get_most_relevant_verse(query)
+            shloka = relevant_verse['Shloka']
+            transliteration = relevant_verse['Transliteration']
+            translation = relevant_verse['EngMeaning']
+            
             prompt = (
-                f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
-                "Format your response in Markdown for best readability."
+                f"User query: {query}\n\n"
+                f"Relevant verse from the Bhagavad Gita:\n"
+                f"Shloka: {shloka}\n"
+                f"Transliteration: {transliteration}\n"
+                f"Translation: {translation}\n\n"
+                f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
+                f"Format your response in Markdown."
             )
-            response = generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1")
+            print(f"Sending prompt to HF: {prompt[:100]}...")  # Truncate for brevity
+            
+            response = client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+                max_new_tokens=150,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.1
+            )
+            print(f"HF response: {response[:50]}...")  # Truncate for brevity
+            
+            explanation = response.strip()
+            formatted_response = (
+                f"### Hindi Shlok\n{shloka}\n\n"
+                f"### Transliteration\n{transliteration}\n\n"
+                f"### Explanation\n{explanation}"
+            )
+        else:
+            # Normal conversational response
+            prompt = (
+                f"The user said: '{query}'. "
+                f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
+                f"Format your response in Markdown."
+            )
+            print(f"Sending prompt to HF: {prompt}")
+            
+            response = client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+                max_new_tokens=100,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.1
+            )
+            print(f"HF response: {response}")
+            
             formatted_response = response.strip()
 
+        # Store AI response in history with a new ID
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
+        print(f"Stored AI response, ID: {ai_id}")
+
         return jsonify({"response": formatted_response, "id": ai_id})
     
     except Exception as e:
         print(f"Error in chat: {str(e)}")
         return jsonify({"error": "Something went wrong on the server"}), 500
 
+# Update a message
 @app.route('/api/update_message', methods=['POST'])
 def update_message():
     try:
         data = request.json
         message_id = data.get('id', '')
         new_content = data.get('content', '')
+
         if not message_id or not new_content:
             return jsonify({"error": "No ID or content provided"}), 400
 
         if message_id in conversation_history and conversation_history[message_id]["role"] == "user":
             conversation_history[message_id]["content"] = new_content
+            print(f"Updated message ID {message_id} to: {new_content}")
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Message not found or not editable"}), 404
@@ -153,38 +171,90 @@ def update_message():
         print(f"Error in update_message: {str(e)}")
         return jsonify({"error": "Something went wrong on the server"}), 500
 
+# Regenerate AI response after editing
 @app.route('/api/regenerate_after', methods=['POST'])
 def regenerate_after():
     try:
         data = request.json
         user_id = data.get('id', '')
+
         if not user_id or user_id not in conversation_history:
             return jsonify({"error": "Invalid or missing user message ID"}), 400
 
         query = conversation_history[user_id]["content"]
-        if is_guidance_query(query):
-            formatted_response = get_guidance_response(query)
+        print(f"Regenerating for query: {query}")
+
+        if query.endswith('?'):
+            relevant_verse = get_most_relevant_verse(query)
+            shloka = relevant_verse['Shloka']
+            transliteration = relevant_verse['Transliteration']
+            translation = relevant_verse['EngMeaning']
+            
+            prompt = (
+                f"User query: {query}\n\n"
+                f"Relevant verse from the Bhagavad Gita:\n"
+                f"Shloka: {shloka}\n"
+                f"Transliteration: {transliteration}\n"
+                f"Translation: {translation}\n\n"
+                f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
+                f"Format your response in Markdown."
+            )
+            print(f"Sending prompt to HF: {prompt[:100]}...")
+            
+            response = client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+                max_new_tokens=150,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.1
+            )
+            print(f"HF response: {response[:50]}...")
+            
+            explanation = response.strip()
+            formatted_response = (
+                f"### Hindi Shlok\n{shloka}\n\n"
+                f"### Transliteration\n{transliteration}\n\n"
+                f"### Explanation\n{explanation}"
+            )
         else:
             prompt = (
-                f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
-                "Format your response in Markdown for best readability."
+                f"The user said: '{query}'. "
+                f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
+                f"Format your response in Markdown."
             )
-            response = generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1")
+            print(f"Sending prompt to HF: {prompt}")
+            
+            response = client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+                max_new_tokens=100,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.1
+            )
+            print(f"HF response: {response}")
+            
             formatted_response = response.strip()
 
+        # Update AI response in history
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
+        print(f"Stored regenerated AI response, ID: {ai_id}")
+
         return jsonify({"response": formatted_response, "id": ai_id})
 
     except Exception as e:
         print(f"Error in regenerate_after: {str(e)}")
         return jsonify({"error": "Something went wrong on the server"}), 500
 
+# Clear conversation
 @app.route('/api/clear', methods=['POST'])
 def clear_conversation():
     try:
         global conversation_history
         conversation_history = {}
+        print("Conversation history cleared")
         return jsonify({"success": True})
     except Exception as e:
         print(f"Error in clear_conversation: {str(e)}")
