@@ -49,7 +49,7 @@ verse_embeddings = np.load('api/verse_embeddings.npy')
 conversation_history = {}
 
 def get_query_embedding(query):
-    """Generate an embedding for the query using the ARLIAI API."""
+    """Generate an embedding for the query using the ARLIAI API (assumed capability)."""
     prompt = (
         f"Generate a 384-dimensional embedding vector for the following text using a sentence transformer model like 'all-MiniLM-L6-v2':\n\n"
         f"\"{query}\""
