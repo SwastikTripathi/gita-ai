@@ -14,8 +14,12 @@ if not HF_API_KEY:
 client = InferenceClient(token=HF_API_KEY)
 
 # Load Gita data and precomputed embeddings
-gita_df = pd.read_csv('api/bhagwad_gita.csv')
-verse_embeddings = np.load('api/verse_embeddings.npy')
+try:
+    gita_df = pd.read_csv('api/bhagwad_gita.csv')
+    verse_embeddings = np.load('api/verse_embeddings.npy')
+except FileNotFoundError as e:
+    print(f"Error loading data files: {str(e)}")
+    raise
 
 # In-memory conversation storage
 conversation_history = {}
@@ -31,7 +35,7 @@ def get_most_relevant_verse(query):
             text=query,
             model="sentence-transformers/all-MiniLM-L6-v2"
         )
-        print(f"Raw embedding: {raw_embedding[:5]}")  # Log first few elements
+        print(f"Raw embedding sample: {raw_embedding[:5]}")  # Log first few elements
         
         # Ensure query_embedding is a 1D array of shape (384,)
         query_embedding = np.array(raw_embedding).flatten()
@@ -67,7 +71,11 @@ def get_most_relevant_verse(query):
 # Serve the frontend
 @app.route('/')
 def serve_index():
-    return send_from_directory('../static', 'index.html')
+    try:
+        return send_from_directory('../static', 'index.html')
+    except Exception as e:
+        print(f"Error serving index.html: {str(e)}")
+        return jsonify({"error": "Failed to serve the page"}), 500
 
 # Handle chat
 @app.route('/api/chat', methods=['POST'])
