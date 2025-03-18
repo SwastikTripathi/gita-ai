@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
 import pandas as pd
-import numpy as np
 import requests
 import json
 import os
@@ -41,39 +40,37 @@ def generate_text(prompt, model):
         print(f"API Error: {str(e)}")
         return "I'm having trouble processing that right now. Please try again."
 
-# Load Bhagavad Gita data and precomputed embeddings
+# Load Bhagavad Gita data from CSV
 gita_df = pd.read_csv('api/bhagwad_gita.csv')
-verse_embeddings = np.load('api/verse_embeddings.npy')
 
 # In-memory conversation storage (for production, consider a persistent DB)
 conversation_history = {}
 
-def get_query_embedding(query):
-    """Generate an embedding for the query using the ARLIAI API (assumed capability)."""
+def get_most_relevant_verse(query):
+    """Return the most relevant verse row from the Bhagavad Gita based on the query using ARLIAI API."""
+    verse_meanings = gita_df['EngMeaning'].tolist()
+    # Limit the number of verses sent to avoid exceeding token limits; take a sample if too large
+    max_verses = 50  # Adjust based on API token limits
+    sampled_meanings = verse_meanings[:max_verses] if len(verse_meanings) > max_verses else verse_meanings
+    
     prompt = (
-        f"Generate a 384-dimensional embedding vector for the following text using a sentence transformer model like 'all-MiniLM-L6-v2':\n\n"
-        f"\"{query}\""
+        f"Given the user query: '{query}'\n\n"
+        "And the following list of verse meanings from the Bhagavad Gita:\n"
+        f"{json.dumps(sampled_meanings, indent=2)}\n\n"
+        "Return the index (0-based) of the verse meaning that is most semantically relevant to the query. "
+        "Respond with only the integer index."
     )
     response = generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1")
     try:
-        # Assuming the API returns a string representation of a list (e.g., "[0.1, 0.2, ...]")
-        embedding = json.loads(response) if response.startswith('[') else eval(response)
-        embedding = np.array(embedding).flatten()
-        if embedding.shape[0] != 384:
-            raise ValueError(f"Expected embedding shape (384,), got {embedding.shape}")
-        return embedding
-    except Exception as e:
-        print(f"Embedding Error: {str(e)}")
-        raise ValueError("Failed to generate a valid embedding for the query.")
-
-def get_most_relevant_verse(query):
-    """Return the most relevant verse row from the Bhagavad Gita based on the query."""
-    query_embedding = get_query_embedding(query)
-    similarities = np.dot(verse_embeddings, query_embedding) / (
-        np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
-    )
-    most_similar_idx = np.argmax(similarities)
-    return gita_df.iloc[most_similar_idx]
+        index = int(response.strip())
+        if 0 <= index < len(gita_df):
+            return gita_df.iloc[index]
+        else:
+            print(f"Invalid index returned: {index}")
+            return gita_df.iloc[0]  # Fallback to first verse
+    except ValueError as e:
+        print(f"Error parsing index: {str(e)}, response: {response}")
+        return gita_df.iloc[0]  # Fallback to first verse
 
 def is_guidance_query(query):
     """Determine if the user's query is seeking guidance, advice, or wisdom."""
