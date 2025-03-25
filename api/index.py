@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
+from sentence_transformers import SentenceTransformer
 import requests
 import os
 import logging
@@ -16,10 +17,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load API keys from environment variables
+# Load ARLIAI API key from environment variable
 ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
 if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
+
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
 # Load Bhagavad Gita data and precomputed embeddings using absolute paths
@@ -32,6 +34,9 @@ with open(os.path.join(os.path.dirname(__file__), 'pre_saved_answers.json'), 'r'
 pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
 pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
 pre_saved_embeddings = np.load(os.path.join(os.path.dirname(__file__), 'pre_saved_embeddings.npy'))
+
+# Load SentenceTransformer model (for query embeddings only)
+st_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # In-memory conversation storage (non-persistent in serverless)
 conversation_history = {}
@@ -67,24 +72,9 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         logger.error(f"Error generating text with Arliai API: {str(e)}")
         raise
 
-def get_query_embedding(query):
-    """Get query embedding using Hugging Face Inference API."""
-    try:
-        raw_embedding = client.feature_extraction(
-            text=query,
-            model="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        query_embedding = np.array(raw_embedding).flatten()
-        if query_embedding.shape[0] != 384:
-            raise ValueError(f"Expected embedding shape (384,), got {query_embedding.shape}")
-        return query_embedding
-    except Exception as e:
-        logger.error(f"Error getting query embedding: {str(e)}")
-        raise
-
 def get_most_relevant_verse(query):
     """Return the most relevant verse row from the Bhagavad Gita based on the query."""
-    query_embedding = get_query_embedding(query)
+    query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
     similarities = np.dot(verse_embeddings, query_embedding) / (
         np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
     )
@@ -145,7 +135,7 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        query_embedding = get_query_embedding(query)
+        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
         similarities = np.dot(pre_saved_embeddings, query_embedding) / (
             np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
         )
