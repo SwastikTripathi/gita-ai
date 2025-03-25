@@ -842,7 +842,7 @@
         <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee</a>? I would love to hear your response</p>
     </div>
 
-<script>
+    <script>
     let conversationHistory = JSON.parse(localStorage.getItem('conversationHistory')) || [];
     let verseShuffleInterval = null;
     let currentTypeInterval = null;
@@ -896,7 +896,6 @@
     waterdropBtn.addEventListener('click', () => {
         const isOpen = slidingMenu.classList.contains('open');
         const menuWidth = slidingMenu.offsetWidth;
-        const buttonWidth = waterdropBtn.offsetWidth;
         if (isOpen) {
             slidingMenu.classList.remove('open');
             waterdropBtn.style.right = '0';
@@ -929,7 +928,7 @@
         if (!currentVerse) fetchRandomVerse();
         verseShuffleInterval = setInterval(fetchRandomVerse, 15000);
     }
-    
+
     function hideVerseDisplay() {
         verseDisplay.classList.remove('open');
         if (verseShuffleInterval) {
@@ -939,11 +938,7 @@
     }
 
     verseBtn.addEventListener('click', () => {
-        if (verseDisplay.classList.contains('open')) {
-            hideVerseDisplay();
-        } else {
-            showVerseDisplay();
-        }
+        verseDisplay.classList.contains('open') ? hideVerseDisplay() : showVerseDisplay();
     });
 
     document.getElementById('next-verse').addEventListener('click', fetchRandomVerse);
@@ -970,9 +965,7 @@
 
     function getTimestamp() {
         const now = new Date();
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
+        return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     }
 
     function scrollToBottom() {
@@ -981,9 +974,8 @@
 
     function updateNavbarBorderPosition() {
         const navbar = document.querySelector('.navbar');
-        const navbarHeight = navbar.offsetHeight;
         const navbarBorder = document.querySelector('.navbar-border');
-        navbarBorder.style.top = `${navbarHeight}px`;
+        navbarBorder.style.top = `${navbar.offsetHeight}px`;
     }
 
     function stopGeneration() {
@@ -994,8 +986,7 @@
             if (lastAiMessage) {
                 const textSpan = lastAiMessage.querySelector('.text');
                 if (textSpan) {
-                    const currentText = textSpan.textContent;
-                    lastAiMessage.innerHTML = `<div class="text">${marked.parse(currentText)}</div><span class="timestamp">${getTimestamp()}</span>`;
+                    lastAiMessage.innerHTML = `<div class="text">${marked.parse(textSpan.textContent)}</div><span class="timestamp">${getTimestamp()}</span>`;
                 }
             }
         }
@@ -1028,10 +1019,7 @@
         interimInterval = setInterval(() => {
             if (!responseReceived) {
                 const randomIndex = Math.floor(Math.random() * interimMessages.length);
-                const newMessage = document.createElement('span');
-                newMessage.textContent = interimMessages[randomIndex];
-                interimDiv.innerHTML = '';
-                interimDiv.appendChild(newMessage);
+                interimDiv.innerHTML = `<span>${interimMessages[randomIndex]}</span>`;
             } else {
                 clearInterval(interimInterval);
                 interimInterval = null;
@@ -1093,7 +1081,7 @@
 
         const progressBar = document.getElementById('wait-progress');
         let progress = 0;
-        const maxWaitTime = 120000; // 2 minutes
+        const maxWaitTime = 120000;
         progressInterval = setInterval(() => {
             if (!responseReceived) {
                 progress += (1000 / maxWaitTime) * 100;
@@ -1105,9 +1093,7 @@
         }, 1000);
 
         verseTimeout = setTimeout(() => {
-            if (!responseReceived) {
-                showVerseDisplay();
-            }
+            if (!responseReceived) showVerseDisplay();
         }, 5000);
 
         currentFetchController = new AbortController();
@@ -1116,7 +1102,7 @@
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message, id: userId, history: conversationHistory }),
+                body: JSON.stringify({ message: message, id: userId }),
                 signal: currentFetchController.signal
             });
             data = await response.json();
@@ -1124,18 +1110,14 @@
             clearTimeout(verseTimeout);
             hideVerseDisplay();
             clearInterval(interimInterval);
-            interimInterval = null;
             clearInterval(progressInterval);
-            progressInterval = null;
             conversationDiv.removeChild(typingIndicatorWrapper);
         } catch (error) {
             responseReceived = true;
             clearTimeout(verseTimeout);
             hideVerseDisplay();
             clearInterval(interimInterval);
-            interimInterval = null;
             clearInterval(progressInterval);
-            progressInterval = null;
             conversationDiv.removeChild(typingIndicatorWrapper);
             sendButtonImg.src = '/static/img/arrow-dark.png';
             sendButtonImg.alt = 'Send';
@@ -1203,15 +1185,13 @@
 
     userInput.addEventListener('input', () => {
         userInput.style.height = 'auto';
-        userInput.style.height = userInput.scrollHeight + 'px';
-        if (userInput.scrollHeight > 150) userInput.style.overflowY = 'auto';
-        else userInput.style.overflowY = 'hidden';
+        userInput.style.height = `${userInput.scrollHeight}px`;
+        userInput.style.overflowY = userInput.scrollHeight > 150 ? 'auto' : 'hidden';
     });
 
     initialInput.addEventListener('input', () => {
         initialInput.style.height = '60px';
-        if (initialInput.scrollHeight > 60) initialInput.style.overflowY = 'auto';
-        else initialInput.style.overflowY = 'hidden';
+        initialInput.style.overflowY = initialInput.scrollHeight > 60 ? 'auto' : 'hidden';
     });
 
     conversationDiv.addEventListener('click', (e) => {
@@ -1230,9 +1210,8 @@
 
             input.addEventListener('input', () => {
                 input.style.height = 'auto';
-                input.style.height = input.scrollHeight + 'px';
-                if (input.scrollHeight > 150) input.style.overflowY = 'auto';
-                else input.style.overflowY = 'hidden';
+                input.style.height = `${input.scrollHeight}px`;
+                input.style.overflowY = input.scrollHeight > 150 ? 'auto' : 'hidden';
             });
 
             input.addEventListener('keydown', async (e) => {
@@ -1244,7 +1223,6 @@
                         messageDiv.appendChild(timestampSpan);
                         stopGeneration();
 
-                        // Update conversationHistory
                         const index = conversationHistory.findIndex(item => item.id === wrapper.dataset.id);
                         if (index !== -1) {
                             conversationHistory[index].content = newText;
@@ -1261,12 +1239,18 @@
                         }
                         localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
 
+                        await fetch('/api/update_message', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
+                        });
+
                         const typingIndicatorWrapper = document.createElement('div');
                         typingIndicatorWrapper.className = 'message-wrapper ai';
                         typingIndicatorWrapper.innerHTML = `
                             <div class="message ai">
                                 <div id="loading-spinner">
-                                    <div class="spinner"></div>
+                                    <img src="/static/img/flute.gif" alt="Loading flute animation">
                                     <p id="interim-message"><span>Processing...</span></p>
                                     <progress id="wait-progress" max="100" value="0"></progress>
                                 </div>
@@ -1294,16 +1278,14 @@
                         }, 1000);
 
                         verseTimeout = setTimeout(() => {
-                            if (!responseReceived) {
-                                showVerseDisplay();
-                            }
+                            if (!responseReceived) showVerseDisplay();
                         }, 5000);
 
                         currentFetchController = new AbortController();
-                        const response = await fetch('/api/chat', {
+                        const response = await fetch('/api/regenerate_after', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ message: newText, id: wrapper.dataset.id, history: conversationHistory }),
+                            body: JSON.stringify({ id: wrapper.dataset.id }),
                             signal: currentFetchController.signal
                         });
                         const data = await response.json();
@@ -1311,9 +1293,7 @@
                         clearTimeout(verseTimeout);
                         hideVerseDisplay();
                         clearInterval(interimInterval);
-                        interimInterval = null;
                         clearInterval(progressInterval);
-                        progressInterval = null;
                         conversationDiv.removeChild(typingIndicatorWrapper);
 
                         const aiMessageWrapper = document.createElement('div');
@@ -1431,23 +1411,14 @@
 
     themeToggle.addEventListener('click', () => {
         themeToggle.classList.toggle('theme-toggle--toggled');
-        if (themeToggle.classList.contains('theme-toggle--toggled')) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            localStorage.setItem('theme', 'dark');
-            clearBtnImg.src = '/static/img/new-light.png';
-            helpBtnImg.src = '/static/img/help-light.png';
-            document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
-        } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-            localStorage.setItem('theme', 'light');
-            clearBtnImg.src = '/static/img/new-dark.png';
-            helpBtnImg.src = '/static/img/help-dark.png';
-            document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
-        }
+        const isDark = themeToggle.classList.contains('theme-toggle--toggled');
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        clearBtnImg.src = isDark ? '/static/img/new-light.png' : '/static/img/new-dark.png';
+        helpBtnImg.src = isDark ? '/static/img/help-light.png' : '/static/img/help-dark.png';
+        document.querySelectorAll('.edit-btn img').forEach(img => img.src = isDark ? '/static/img/edit-light.png' : '/static/img/edit-dark.png');
+        document.querySelector('#prev-verse .verse-arrow').src = isDark ? '/static/img/left-arrow-light.png' : '/static/img/left-arrow-dark.png';
+        document.querySelector('#next-verse .verse-arrow').src = isDark ? '/static/img/right-arrow-light.png' : '/static/img/right-arrow-dark.png';
         updateNavbarBorderPosition();
     });
 
@@ -1466,17 +1437,12 @@
         document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
     }
 
-    helpBtn.addEventListener('click', () => {
-        helpModal.style.display = 'flex';
-    });
-    helpCloseBtn.addEventListener('click', () => {
-        helpModal.style.display = 'none';
-    });
+    helpBtn.addEventListener('click', () => helpModal.style.display = 'flex');
+    helpCloseBtn.addEventListener('click', () => helpModal.style.display = 'none');
     helpModal.addEventListener('click', (e) => {
         if (e.target === helpModal) helpModal.style.display = 'none';
     });
 
-    // Load initial history
     window.addEventListener('load', () => {
         if (conversationHistory.length) {
             conversationDiv.innerHTML = `
@@ -1505,16 +1471,14 @@
             inputArea.style.display = 'flex';
             scrollToBottom();
         }
-        setTimeout(() => {
-            initialInput.focus();
-        }, 100);
+        setTimeout(() => initialInput.focus(), 100);
     });
 
     updateNavbarBorderPosition();
     window.addEventListener('resize', updateNavbarBorderPosition);
-
     scrollToBottom();
     setWelcomeMessage();
 </script>
+
 </body>
 </html>
