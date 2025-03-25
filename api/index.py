@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify, send_from_directory
-import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from huggingface_hub import InferenceClient
 import os
 import logging
 import json
+from verse_embeddings import verse_embeddings, gita_df  # Import precomputed data
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -17,30 +17,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load Hugging Face API key from environment variable (required for Vercel)
+# Load Hugging Face API key from environment variable
 HF_API_KEY = os.environ.get("HF_API_KEY")
 if not HF_API_KEY:
     raise ValueError("HF_API_KEY environment variable is not set")
 client = InferenceClient(token=HF_API_KEY)
 
-# Load Bhagavad Gita data from CSV (relative to api/)
-try:
-    gita_df = pd.read_csv('api/bhagwad_gita.csv')
-except FileNotFoundError:
-    logger.error("bhagwad_gita.csv not found in api/ directory")
-    raise
+# Load Sentence Transformer model for query encoding (not embeddings)
+st_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Load Sentence Transformer model and compute embeddings
-try:
-    st_model = SentenceTransformer('all-MiniLM-L6-v2')
-    verse_meanings = gita_df['EngMeaning'].tolist()
-    verse_embeddings = st_model.encode(verse_meanings, convert_to_tensor=False)
-    verse_embeddings = np.array(verse_embeddings)
-except Exception as e:
-    logger.error(f"Error initializing SentenceTransformer or embeddings: {str(e)}")
-    raise
-
-# Load pre-saved answers (relative to api/)
+# Load pre-saved answers
 try:
     with open('api/pre_saved_answers.json', 'r', encoding='utf-8') as f:
         pre_saved_data = json.load(f)
@@ -55,7 +41,7 @@ except Exception as e:
     logger.error(f"Error loading pre-saved answers: {str(e)}")
     raise
 
-# In-memory conversation storage (note: won't persist across Vercel serverless invocations)
+# In-memory conversation storage (non-persistent in Vercel)
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1"):
@@ -252,7 +238,3 @@ def clear_conversation():
     except Exception as e:
         logger.error(f"Error in /api/clear endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
-
-# Vercel requires a handler function
-def handler(request):
-    return app(request.environ, request.start_response)
