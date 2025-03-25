@@ -21,12 +21,6 @@ logger = logging.getLogger(__name__)
 ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
 if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
-
-HF_API_KEY = os.environ.get("HF_API_KEY")
-if not HF_API_KEY:
-    raise ValueError("HF_API_KEY environment variable is not set")
-
-client = InferenceClient(token=HF_API_KEY)
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
 # Load Bhagavad Gita data and precomputed embeddings using absolute paths
