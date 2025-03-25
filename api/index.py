@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
-from huggingface_hub import InferenceClient
 import requests
 import os
 import logging
