@@ -842,649 +842,679 @@
         <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee</a>? I would love to hear your response</p>
     </div>
 
-    <script>
-        let verseShuffleInterval = null;
-        let currentTypeInterval = null;
-        let currentFetchController = null;
-        let currentRotation = 0;
-        let interimInterval = null;
-        let progressInterval = null;
-        let currentVerse = null;
-        let responseReceived = false;
-        let verseTimeout;
+<script>
+    let conversationHistory = JSON.parse(localStorage.getItem('conversationHistory')) || [];
+    let verseShuffleInterval = null;
+    let currentTypeInterval = null;
+    let currentFetchController = null;
+    let currentRotation = 0;
+    let interimInterval = null;
+    let progressInterval = null;
+    let currentVerse = null;
+    let responseReceived = false;
+    let verseTimeout;
 
-        const interimMessages = [
-            "Searching the scriptures...",
-            "Consulting the sages...",
-            "Finding wisdom for you...",
-            "Reflecting on your query...",
-            "Skimming the old books...",
-            "Texting the wise folks...",
-            "Digging up some answers...",
-            "Mulling over your question...",
-            "Checking my notes real quick...",
-            "Asking around the brain trust...",
-            "Rifling through the files...",
-            "Puzzling this one out..."
-        ];
+    const interimMessages = [
+        "Searching the scriptures...",
+        "Consulting the sages...",
+        "Finding wisdom for you...",
+        "Reflecting on your query...",
+        "Skimming the old books...",
+        "Texting the wise folks...",
+        "Digging up some answers...",
+        "Mulling over your question...",
+        "Checking my notes real quick...",
+        "Asking around the brain trust...",
+        "Rifling through the files...",
+        "Puzzling this one out..."
+    ];
 
-        const initialInput = document.getElementById('initial-input');
-        const initialSendButton = document.getElementById('initial-send-button');
-        const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
-        const sendButtonImg = sendButton.querySelector('img');
-        const conversationDiv = document.getElementById('conversation');
-        const clearBtn = document.getElementById('clear-btn');
-        const clearBtnImg = clearBtn.querySelector('img');
-        const modal = document.getElementById('modal');
-        const modalClearBtn = document.getElementById('modal-clear-btn');
-        const themeToggle = document.getElementById('theme-toggle-btn');
-        const helpBtn = document.getElementById('help-btn');
-        const helpBtnImg = helpBtn.querySelector('img');
-        const helpModal = document.getElementById('help-modal');
-        const helpCloseBtn = document.getElementById('help-close-btn');
-        const inputArea = document.getElementById('input-area');
-        const initialScreen = document.querySelector('.initial-screen');
-        const initialGreeting = document.getElementById('initial-greeting');
-        const welcomeLine2 = document.getElementById('welcome-line2');
-        const waterdropBtn = document.getElementById('waterdrop-btn');
-        const slidingMenu = document.getElementById('sliding-menu');
-        const verseBtn = document.querySelector('.verse-btn');
-        const verseDisplay = document.getElementById('verse-display');
+    const initialInput = document.getElementById('initial-input');
+    const initialSendButton = document.getElementById('initial-send-button');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const sendButtonImg = sendButton.querySelector('img');
+    const conversationDiv = document.getElementById('conversation');
+    const clearBtn = document.getElementById('clear-btn');
+    const clearBtnImg = clearBtn.querySelector('img');
+    const modal = document.getElementById('modal');
+    const modalClearBtn = document.getElementById('modal-clear-btn');
+    const themeToggle = document.getElementById('theme-toggle-btn');
+    const helpBtn = document.getElementById('help-btn');
+    const helpBtnImg = helpBtn.querySelector('img');
+    const helpModal = document.getElementById('help-modal');
+    const helpCloseBtn = document.getElementById('help-close-btn');
+    const inputArea = document.getElementById('input-area');
+    const initialScreen = document.querySelector('.initial-screen');
+    const initialGreeting = document.getElementById('initial-greeting');
+    const welcomeLine2 = document.getElementById('welcome-line2');
+    const waterdropBtn = document.getElementById('waterdrop-btn');
+    const slidingMenu = document.getElementById('sliding-menu');
+    const verseBtn = document.querySelector('.verse-btn');
+    const verseDisplay = document.getElementById('verse-display');
 
-        waterdropBtn.addEventListener('click', () => {
-            const isOpen = slidingMenu.classList.contains('open');
-            const menuWidth = slidingMenu.offsetWidth;
-            const buttonWidth = waterdropBtn.offsetWidth;
-            if (isOpen) {
-                slidingMenu.classList.remove('open');
-                waterdropBtn.style.right = '0';
-            } else {
-                slidingMenu.classList.add('open');
-                waterdropBtn.style.right = `${menuWidth}px`;
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!slidingMenu.contains(e.target) && !waterdropBtn.contains(e.target) && slidingMenu.classList.contains('open')) {
-                slidingMenu.classList.remove('open');
-                waterdropBtn.style.right = '0';
-            }
-        });
-
-        async function fetchRandomVerse() {
-            const response = await fetch('/api/random_verse');
-            const data = await response.json();
-            currentVerse = data;
-            // Split the verse at ' | ' and join with <br> for line breaks
-            const formattedVerse = String(data.verse || "").split(' | ').join(' |<br>');
-            data.meaning = data.meaning.replace(/^\d+(\.\d+)?\s*/, '');
-            document.getElementById('verse-content').innerHTML = `
-                <strong>${formattedVerse}</strong><br><br>${data.meaning}
-            `;
+    waterdropBtn.addEventListener('click', () => {
+        const isOpen = slidingMenu.classList.contains('open');
+        const menuWidth = slidingMenu.offsetWidth;
+        const buttonWidth = waterdropBtn.offsetWidth;
+        if (isOpen) {
+            slidingMenu.classList.remove('open');
+            waterdropBtn.style.right = '0';
+        } else {
+            slidingMenu.classList.add('open');
+            waterdropBtn.style.right = `${menuWidth}px`;
         }
+    });
 
-        function showVerseDisplay() {
-            verseDisplay.classList.add('open');
-            if (!currentVerse) fetchRandomVerse();
-            // Start shuffling every 15 seconds
-            verseShuffleInterval = setInterval(fetchRandomVerse, 15000);
+    document.addEventListener('click', (e) => {
+        if (!slidingMenu.contains(e.target) && !waterdropBtn.contains(e.target) && slidingMenu.classList.contains('open')) {
+            slidingMenu.classList.remove('open');
+            waterdropBtn.style.right = '0';
         }
-        
-        function hideVerseDisplay() {
-            verseDisplay.classList.remove('open');
-            // Stop shuffling when hidden
-            if (verseShuffleInterval) {
-                clearInterval(verseShuffleInterval);
-                verseShuffleInterval = null;
-            }
+    });
+
+    async function fetchRandomVerse() {
+        const response = await fetch('/api/random_verse');
+        const data = await response.json();
+        currentVerse = data;
+        const formattedVerse = String(data.verse || "").split(' | ').join(' |<br>');
+        data.meaning = data.meaning.replace(/^\d+(\.\d+)?\s*/, '');
+        document.getElementById('verse-content').innerHTML = `
+            <strong>${formattedVerse}</strong><br><br>${data.meaning}
+        `;
+    }
+
+    function showVerseDisplay() {
+        verseDisplay.classList.add('open');
+        if (!currentVerse) fetchRandomVerse();
+        verseShuffleInterval = setInterval(fetchRandomVerse, 15000);
+    }
+    
+    function hideVerseDisplay() {
+        verseDisplay.classList.remove('open');
+        if (verseShuffleInterval) {
+            clearInterval(verseShuffleInterval);
+            verseShuffleInterval = null;
         }
+    }
 
-        function hideVerseDisplay() {
-            verseDisplay.classList.remove('open');
+    verseBtn.addEventListener('click', () => {
+        if (verseDisplay.classList.contains('open')) {
+            hideVerseDisplay();
+        } else {
+            showVerseDisplay();
         }
+    });
 
-        verseBtn.addEventListener('click', () => {
-            if (verseDisplay.classList.contains('open')) {
-                hideVerseDisplay();
-            } else {
-                showVerseDisplay();
-            }
-        });
+    document.getElementById('next-verse').addEventListener('click', fetchRandomVerse);
+    document.getElementById('prev-verse').addEventListener('click', fetchRandomVerse);
 
-        document.getElementById('next-verse').addEventListener('click', fetchRandomVerse);
-        document.getElementById('prev-verse').addEventListener('click', fetchRandomVerse);
+    function getTimeOfDay() {
+        const now = new Date();
+        const hours = now.getHours();
+        if (hours >= 5 && hours < 12) return "morning";
+        else if (hours >= 12 && hours < 17) return "afternoon";
+        else if (hours >= 17 && hours < 22) return "evening";
+        else return "night";
+    }
 
-        function getTimeOfDay() {
-            const now = new Date();
-            const hours = now.getHours();
-            if (hours >= 5 && hours < 12) return "morning";
-            else if (hours >= 12 && hours < 17) return "afternoon";
-            else if (hours >= 17 && hours < 22) return "evening";
-            else return "night";
-        }
+    function setWelcomeMessage() {
+        const timeOfDay = getTimeOfDay();
+        welcomeLine2.textContent = `How can I help you this ${timeOfDay}?`;
+    }
 
-        function setWelcomeMessage() {
-            const timeOfDay = getTimeOfDay();
-            welcomeLine2.textContent = `How can I help you this ${timeOfDay}?`;
-        }
+    function setPrompt(prompt) {
+        initialInput.value = prompt;
+        sendMessage('initial');
+    }
 
-        function setPrompt(prompt) {
-            initialInput.value = prompt;
-            sendMessage('initial');
-        }
+    function getTimestamp() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
 
-        function getTimestamp() {
-            const now = new Date();
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
-        }
+    function scrollToBottom() {
+        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+    }
 
-        function scrollToBottom() {
-            conversationDiv.scrollTop = conversationDiv.scrollHeight;
-        }
+    function updateNavbarBorderPosition() {
+        const navbar = document.querySelector('.navbar');
+        const navbarHeight = navbar.offsetHeight;
+        const navbarBorder = document.querySelector('.navbar-border');
+        navbarBorder.style.top = `${navbarHeight}px`;
+    }
 
-        function updateNavbarBorderPosition() {
-            const navbar = document.querySelector('.navbar');
-            const navbarHeight = navbar.offsetHeight;
-            const navbarBorder = document.querySelector('.navbar-border');
-            navbarBorder.style.top = `${navbarHeight}px`;
-        }
-
-        function stopGeneration() {
-            if (currentTypeInterval) {
-                clearInterval(currentTypeInterval);
-                currentTypeInterval = null;
-                const lastAiMessage = conversationDiv.querySelector('.message-wrapper.ai:last-child .message');
-                if (lastAiMessage) {
-                    const textSpan = lastAiMessage.querySelector('.text');
-                    if (textSpan) {
-                        const currentText = textSpan.textContent;
-                        lastAiMessage.innerHTML = `<div class="text">${marked.parse(currentText)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                    }
+    function stopGeneration() {
+        if (currentTypeInterval) {
+            clearInterval(currentTypeInterval);
+            currentTypeInterval = null;
+            const lastAiMessage = conversationDiv.querySelector('.message-wrapper.ai:last-child .message');
+            if (lastAiMessage) {
+                const textSpan = lastAiMessage.querySelector('.text');
+                if (textSpan) {
+                    const currentText = textSpan.textContent;
+                    lastAiMessage.innerHTML = `<div class="text">${marked.parse(currentText)}</div><span class="timestamp">${getTimestamp()}</span>`;
                 }
             }
-            if (currentFetchController) {
-                currentFetchController.abort();
-                currentFetchController = null;
-            }
-            if (interimInterval) {
+        }
+        if (currentFetchController) {
+            currentFetchController.abort();
+            currentFetchController = null;
+        }
+        if (interimInterval) {
+            clearInterval(interimInterval);
+            interimInterval = null;
+        }
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+        const typingIndicatorWrapper = conversationDiv.querySelector('.message-wrapper.ai:last-child');
+        if (typingIndicatorWrapper && typingIndicatorWrapper.querySelector('#loading-spinner')) {
+            conversationDiv.removeChild(typingIndicatorWrapper);
+        }
+        sendButtonImg.src = '/static/img/arrow-dark.png';
+        sendButtonImg.alt = 'Send';
+        scrollToBottom();
+        userInput.focus();
+        clearTimeout(verseTimeout);
+        hideVerseDisplay();
+    }
+
+    function startInterimMessages() {
+        const interimDiv = document.getElementById('interim-message');
+        interimInterval = setInterval(() => {
+            if (!responseReceived) {
+                const randomIndex = Math.floor(Math.random() * interimMessages.length);
+                const newMessage = document.createElement('span');
+                newMessage.textContent = interimMessages[randomIndex];
+                interimDiv.innerHTML = '';
+                interimDiv.appendChild(newMessage);
+            } else {
                 clearInterval(interimInterval);
                 interimInterval = null;
             }
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-            }
-            const typingIndicatorWrapper = conversationDiv.querySelector('.message-wrapper.ai:last-child');
-            if (typingIndicatorWrapper && typingIndicatorWrapper.querySelector('#loading-spinner')) {
-                conversationDiv.removeChild(typingIndicatorWrapper);
-            }
-            sendButtonImg.src = '/static/img/arrow-dark.png';
-            sendButtonImg.alt = 'Send';
-            scrollToBottom();
-            userInput.focus();
-            clearTimeout(verseTimeout);
-            hideVerseDisplay();
-            shouldExit = true;
-        }
+        }, 10000);
+    }
 
-        function startInterimMessages() {
-            const interimDiv = document.getElementById('interim-message');
-        
-            interimInterval = setInterval(() => {
-                if (!responseReceived) {
-                    const randomIndex = Math.floor(Math.random() * interimMessages.length);
-                    const newMessage = document.createElement('span');
-                    newMessage.textContent = interimMessages[randomIndex];
-                    interimDiv.innerHTML = '';
-                    interimDiv.appendChild(newMessage);
-                } else {
-                    clearInterval(interimInterval);
-                    interimInterval = null;
-                }
-            }, 10000);
-        }
+    async function sendMessage(messageSource = 'user') {
+        stopGeneration();
 
-        async function sendMessage(messageSource = 'user') {
-            stopGeneration();
+        const message = messageSource === 'initial' ? initialInput.value.trim() : userInput.value.trim();
+        if (!message) return;
 
-            const message = messageSource === 'initial' ? initialInput.value.trim() : userInput.value.trim();
-            if (!message) return;
+        if (currentRotation === 0) currentRotation = -90;
+        else currentRotation -= 360;
+        sendButton.style.transform = `rotate(${currentRotation}deg)`;
 
-            if (currentRotation === 0) currentRotation = -90;
-            else currentRotation -= 360;
-            sendButton.style.transform = `rotate(${currentRotation}deg)`;
+        const userId = Date.now().toString();
+        const userMessageWrapper = document.createElement('div');
+        userMessageWrapper.className = 'message-wrapper user';
+        userMessageWrapper.dataset.id = userId;
+        userMessageWrapper.innerHTML = `
+            <div class="message user">
+                <div class="text">${message}</div>
+                <span class="timestamp">${getTimestamp()}</span>
+            </div>
+            <button class="edit-btn"><img src="${document.documentElement.getAttribute('data-theme') === 'dark' ? '/static/img/edit-light.png' : '/static/img/edit-dark.png'}" alt="Edit"></button>
+        `;
+        conversationDiv.appendChild(userMessageWrapper);
+        conversationHistory.push({ id: userId, role: 'user', content: message });
+        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
 
-            const userId = Date.now().toString();
-            const userMessageWrapper = document.createElement('div');
-            userMessageWrapper.className = 'message-wrapper user';
-            userMessageWrapper.dataset.id = userId;
-            const userMessage = document.createElement('div');
-            userMessage.className = 'message user';
-            const textDiv = document.createElement('div');
-            textDiv.className = 'text';
-            textDiv.textContent = message;
-            userMessage.appendChild(textDiv);
-            const userTimestamp = document.createElement('span');
-            userTimestamp.className = 'timestamp';
-            userTimestamp.textContent = getTimestamp();
-            userMessage.appendChild(userTimestamp);
-            userMessageWrapper.appendChild(userMessage);
-            const editBtn = document.createElement('button');
-            editBtn.className = 'edit-btn';
-            const editImg = document.createElement('img');
-            editImg.src = document.documentElement.getAttribute('data-theme') === 'dark' ? '/static/img/edit-light.png' : '/static/img/edit-dark.png';
-            editImg.alt = 'Edit';
-            editBtn.appendChild(editImg);
-            userMessageWrapper.appendChild(editBtn);
-            conversationDiv.appendChild(userMessageWrapper);
+        initialScreen.style.display = 'none';
+        conversationDiv.style.display = 'block';
+        inputArea.style.display = 'flex';
+        if (messageSource === 'initial') initialInput.value = '';
+        else userInput.value = '';
+        userInput.style.height = 'auto';
+        scrollToBottom();
 
-            initialScreen.style.display = 'none';
-            conversationDiv.style.display = 'block';
-            inputArea.style.display = 'flex';
-            if (messageSource === 'initial') initialInput.value = '';
-            else userInput.value = '';
-            userInput.style.height = 'auto';
-            scrollToBottom();
-
-            const typingIndicatorWrapper = document.createElement('div');
-            typingIndicatorWrapper.className = 'message-wrapper ai';
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'message ai';
-            typingIndicator.innerHTML = `
+        const typingIndicatorWrapper = document.createElement('div');
+        typingIndicatorWrapper.className = 'message-wrapper ai';
+        typingIndicatorWrapper.innerHTML = `
+            <div class="message ai">
                 <div id="loading-spinner">
-                    <img src="static/img/flute.gif" alt="Loading flute animation">
+                    <img src="/static/img/flute.gif" alt="Loading flute animation">
                     <p id="interim-message"><span>Processing...</span></p>
                     <progress id="wait-progress" max="100" value="0"></progress>
                 </div>
-            `;
-            typingIndicatorWrapper.appendChild(typingIndicator);
-            conversationDiv.appendChild(typingIndicatorWrapper);
-            scrollToBottom();
-            sendButtonImg.src = '/static/img/stop-dark.png';
-            sendButtonImg.alt = 'Stop';
+            </div>
+        `;
+        conversationDiv.appendChild(typingIndicatorWrapper);
+        scrollToBottom();
+        sendButtonImg.src = '/static/img/stop-dark.png';
+        sendButtonImg.alt = 'Stop';
 
-            responseReceived = false;
-            startInterimMessages();
+        responseReceived = false;
+        startInterimMessages();
 
-            const progressBar = document.getElementById('wait-progress');
-            let progress = 0;
-            const maxWaitTime = 120000; // 2 minutes in milliseconds
-            progressInterval = setInterval(() => {
-                if (!responseReceived) {
-                    progress += (1000 / maxWaitTime) * 100;
-                    progressBar.value = Math.min(progress, 100);
-                } else {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                }
-            }, 1000);
-
-            verseTimeout = setTimeout(() => {
-                if (!responseReceived) {
-                    showVerseDisplay();
-                }
-            }, 5000);
-
-            currentFetchController = new AbortController();
-            let data;
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message, id: userId }),
-                    signal: currentFetchController.signal
-                });
-                data = await response.json();
-                responseReceived = true;
-                clearTimeout(verseTimeout);
-                hideVerseDisplay();
-                clearInterval(interimInterval);
-                interimInterval = null;
+        const progressBar = document.getElementById('wait-progress');
+        let progress = 0;
+        const maxWaitTime = 120000; // 2 minutes
+        progressInterval = setInterval(() => {
+            if (!responseReceived) {
+                progress += (1000 / maxWaitTime) * 100;
+                progressBar.value = Math.min(progress, 100);
+            } else {
                 clearInterval(progressInterval);
                 progressInterval = null;
-                conversationDiv.removeChild(typingIndicatorWrapper);
-            } catch (error) {
-                responseReceived = true;
-                clearTimeout(verseTimeout);
-                hideVerseDisplay();
-                clearInterval(interimInterval);
-                interimInterval = null;
-                clearInterval(progressInterval);
-                progressInterval = null;
-                conversationDiv.removeChild(typingIndicatorWrapper);
-                sendButtonImg.src = '/static/img/arrow-dark.png';
-                sendButtonImg.alt = 'Send';
-                userInput.focus();
-                return;
             }
+        }, 1000);
 
-            const aiMessageWrapper = document.createElement('div');
-            aiMessageWrapper.className = 'message-wrapper ai';
-            aiMessageWrapper.dataset.id = data.id;
-            const aiMessage = document.createElement('div');
-            aiMessage.className = 'message ai';
-            const textSpan = document.createElement('span');
-            textSpan.className = 'text';
-            aiMessage.appendChild(textSpan);
-            aiMessageWrapper.appendChild(aiMessage);
-            conversationDiv.appendChild(aiMessageWrapper);
+        verseTimeout = setTimeout(() => {
+            if (!responseReceived) {
+                showVerseDisplay();
+            }
+        }, 5000);
 
-            const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
-            let i = 0;
-            const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
-            let autoScroll = isAtBottom;
-            const scrollListener = () => {
-                autoScroll = false;
-                conversationDiv.removeEventListener('scroll', scrollListener);
-            };
-            conversationDiv.addEventListener('scroll', scrollListener);
-            
-            shouldExit = true;
-            
-            currentTypeInterval = setInterval(() => {
-                if (i < fullResponse.length) {
-                    textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
-                    i++;
-                    if (autoScroll) scrollToBottom();
-                } else {
-                    clearInterval(currentTypeInterval);
-                    currentTypeInterval = null;
-                    aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                    sendButtonImg.src = '/static/img/arrow-dark.png';
-                    sendButtonImg.alt = 'Send';
-                    if (autoScroll) scrollToBottom();
-                    userInput.focus();
-                    document.getElementById('notification-sound').play();
-                }
-            }, 3); // Slower typing effect
+        currentFetchController = new AbortController();
+        let data;
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, id: userId, history: conversationHistory }),
+                signal: currentFetchController.signal
+            });
+            data = await response.json();
+            responseReceived = true;
+            clearTimeout(verseTimeout);
+            hideVerseDisplay();
+            clearInterval(interimInterval);
+            interimInterval = null;
+            clearInterval(progressInterval);
+            progressInterval = null;
+            conversationDiv.removeChild(typingIndicatorWrapper);
+        } catch (error) {
+            responseReceived = true;
+            clearTimeout(verseTimeout);
+            hideVerseDisplay();
+            clearInterval(interimInterval);
+            interimInterval = null;
+            clearInterval(progressInterval);
+            progressInterval = null;
+            conversationDiv.removeChild(typingIndicatorWrapper);
+            sendButtonImg.src = '/static/img/arrow-dark.png';
+            sendButtonImg.alt = 'Send';
+            userInput.focus();
+            return;
         }
 
-        sendButton.addEventListener('click', () => sendMessage('user'));
-        initialSendButton.addEventListener('click', () => sendMessage('initial'));
+        const aiMessageWrapper = document.createElement('div');
+        aiMessageWrapper.className = 'message-wrapper ai';
+        aiMessageWrapper.dataset.id = data.id;
+        const aiMessage = document.createElement('div');
+        aiMessage.className = 'message ai';
+        const textSpan = document.createElement('span');
+        textSpan.className = 'text';
+        aiMessage.appendChild(textSpan);
+        aiMessageWrapper.appendChild(aiMessage);
+        conversationDiv.appendChild(aiMessageWrapper);
+        conversationHistory.push({ id: data.id, role: 'ai', content: data.response });
+        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
 
-        userInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage('user');
+        const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
+        let i = 0;
+        const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
+        let autoScroll = isAtBottom;
+        const scrollListener = () => {
+            autoScroll = false;
+            conversationDiv.removeEventListener('scroll', scrollListener);
+        };
+        conversationDiv.addEventListener('scroll', scrollListener);
+
+        currentTypeInterval = setInterval(() => {
+            if (i < fullResponse.length) {
+                textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
+                i++;
+                if (autoScroll) scrollToBottom();
+            } else {
+                clearInterval(currentTypeInterval);
+                currentTypeInterval = null;
+                aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
+                sendButtonImg.src = '/static/img/arrow-dark.png';
+                sendButtonImg.alt = 'Send';
+                if (autoScroll) scrollToBottom();
+                userInput.focus();
+                document.getElementById('notification-sound').play();
             }
-        });
+        }, 3);
+    }
 
-        initialInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage('initial');
-            }
-        });
+    sendButton.addEventListener('click', () => sendMessage('user'));
+    initialSendButton.addEventListener('click', () => sendMessage('initial'));
 
-        userInput.addEventListener('input', () => {
-            userInput.style.height = 'auto';
-            userInput.style.height = userInput.scrollHeight + 'px';
-            if (userInput.scrollHeight > 150) userInput.style.overflowY = 'auto';
-            else userInput.style.overflowY = 'hidden';
-        });
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage('user');
+        }
+    });
 
-        initialInput.addEventListener('input', () => {
-            initialInput.style.height = '60px';
-            if (initialInput.scrollHeight > 60) initialInput.style.overflowY = 'auto';
-            else initialInput.style.overflowY = 'hidden';
-        });
+    initialInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage('initial');
+        }
+    });
 
-        conversationDiv.addEventListener('click', (e) => {
-            if (e.target.closest('.edit-btn')) {
-                const wrapper = e.target.closest('.message-wrapper');
-                const messageDiv = wrapper.querySelector('.message');
-                const textDiv = messageDiv.querySelector('.text');
-                const timestampSpan = messageDiv.querySelector('.timestamp');
-                const currentText = textDiv.textContent;
-                const input = document.createElement('textarea');
-                input.value = currentText;
-                input.className = 'edit-input';
-                textDiv.innerHTML = '';
-                textDiv.appendChild(input);
-                input.focus();
+    userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = userInput.scrollHeight + 'px';
+        if (userInput.scrollHeight > 150) userInput.style.overflowY = 'auto';
+        else userInput.style.overflowY = 'hidden';
+    });
 
-                input.addEventListener('input', () => {
-                    input.style.height = 'auto';
-                    input.style.height = input.scrollHeight + 'px';
-                    if (input.scrollHeight > 150) input.style.overflowY = 'auto';
-                    else input.style.overflowY = 'hidden';
-                });
+    initialInput.addEventListener('input', () => {
+        initialInput.style.height = '60px';
+        if (initialInput.scrollHeight > 60) initialInput.style.overflowY = 'auto';
+        else initialInput.style.overflowY = 'hidden';
+    });
 
-                input.addEventListener('keydown', async (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        const newText = input.value.trim();
-                        if (newText) {
-                            textDiv.textContent = newText;
-                            messageDiv.appendChild(timestampSpan);
-                            stopGeneration();
+    conversationDiv.addEventListener('click', (e) => {
+        if (e.target.closest('.edit-btn')) {
+            const wrapper = e.target.closest('.message-wrapper');
+            const messageDiv = wrapper.querySelector('.message');
+            const textDiv = messageDiv.querySelector('.text');
+            const timestampSpan = messageDiv.querySelector('.timestamp');
+            const currentText = textDiv.textContent;
+            const input = document.createElement('textarea');
+            input.value = currentText;
+            input.className = 'edit-input';
+            textDiv.innerHTML = '';
+            textDiv.appendChild(input);
+            input.focus();
 
-                            let nextWrapper = wrapper.nextElementSibling;
-                            while (nextWrapper) {
-                                const toRemove = nextWrapper;
-                                nextWrapper = nextWrapper.nextElementSibling;
-                                conversationDiv.removeChild(toRemove);
-                            }
+            input.addEventListener('input', () => {
+                input.style.height = 'auto';
+                input.style.height = input.scrollHeight + 'px';
+                if (input.scrollHeight > 150) input.style.overflowY = 'auto';
+                else input.style.overflowY = 'hidden';
+            });
 
-                            const typingIndicatorWrapper = document.createElement('div');
-                            typingIndicatorWrapper.className = 'message-wrapper ai';
-                            const typingIndicator = document.createElement('div');
-                            typingIndicator.className = 'message ai';
-                            typingIndicator.innerHTML = `
+            input.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const newText = input.value.trim();
+                    if (newText) {
+                        textDiv.textContent = newText;
+                        messageDiv.appendChild(timestampSpan);
+                        stopGeneration();
+
+                        // Update conversationHistory
+                        const index = conversationHistory.findIndex(item => item.id === wrapper.dataset.id);
+                        if (index !== -1) {
+                            conversationHistory[index].content = newText;
+                            localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+                        }
+
+                        let nextWrapper = wrapper.nextElementSibling;
+                        while (nextWrapper) {
+                            const toRemove = nextWrapper;
+                            nextWrapper = nextWrapper.nextElementSibling;
+                            conversationDiv.removeChild(toRemove);
+                            const removeIndex = conversationHistory.findIndex(item => item.id === toRemove.dataset.id);
+                            if (removeIndex !== -1) conversationHistory.splice(removeIndex, 1);
+                        }
+                        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+
+                        const typingIndicatorWrapper = document.createElement('div');
+                        typingIndicatorWrapper.className = 'message-wrapper ai';
+                        typingIndicatorWrapper.innerHTML = `
+                            <div class="message ai">
                                 <div id="loading-spinner">
                                     <div class="spinner"></div>
                                     <p id="interim-message"><span>Processing...</span></p>
                                     <progress id="wait-progress" max="100" value="0"></progress>
                                 </div>
-                            `;
-                            typingIndicatorWrapper.appendChild(typingIndicator);
-                            conversationDiv.appendChild(typingIndicatorWrapper);
-                            scrollToBottom();
-                            sendButtonImg.src = '/static/img/stop-dark.png';
-                            sendButtonImg.alt = 'Stop';
+                            </div>
+                        `;
+                        conversationDiv.appendChild(typingIndicatorWrapper);
+                        scrollToBottom();
+                        sendButtonImg.src = '/static/img/stop-dark.png';
+                        sendButtonImg.alt = 'Stop';
 
-                            responseReceived = false;
-                            startInterimMessages();
+                        responseReceived = false;
+                        startInterimMessages();
 
-                            const progressBar = document.getElementById('wait-progress');
-                            let progress = 0;
-                            const maxWaitTime = 120000;
-                            progressInterval = setInterval(() => {
-                                if (!responseReceived) {
-                                    progress += (1000 / maxWaitTime) * 100;
-                                    progressBar.value = Math.min(progress, 100);
-                                } else {
-                                    clearInterval(progressInterval);
-                                    progressInterval = null;
-                                }
-                            }, 1000);
+                        const progressBar = document.getElementById('wait-progress');
+                        let progress = 0;
+                        const maxWaitTime = 120000;
+                        progressInterval = setInterval(() => {
+                            if (!responseReceived) {
+                                progress += (1000 / maxWaitTime) * 100;
+                                progressBar.value = Math.min(progress, 100);
+                            } else {
+                                clearInterval(progressInterval);
+                                progressInterval = null;
+                            }
+                        }, 1000);
 
-                            verseTimeout = setTimeout(() => {
-                                if (!responseReceived) {
-                                    showVerseDisplay();
-                                }
-                            }, 5000);
+                        verseTimeout = setTimeout(() => {
+                            if (!responseReceived) {
+                                showVerseDisplay();
+                            }
+                        }, 5000);
 
-                            currentFetchController = new AbortController();
-                            await fetch('/api/update_message', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
-                            });
+                        currentFetchController = new AbortController();
+                        const response = await fetch('/api/chat', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: newText, id: wrapper.dataset.id, history: conversationHistory }),
+                            signal: currentFetchController.signal
+                        });
+                        const data = await response.json();
+                        responseReceived = true;
+                        clearTimeout(verseTimeout);
+                        hideVerseDisplay();
+                        clearInterval(interimInterval);
+                        interimInterval = null;
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        conversationDiv.removeChild(typingIndicatorWrapper);
 
-                            const response = await fetch('/api/regenerate_after', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: wrapper.dataset.id }),
-                                signal: currentFetchController.signal
-                            });
-                            const data = await response.json();
-                            responseReceived = true;
-                            clearTimeout(verseTimeout);
-                            hideVerseDisplay();
-                            clearInterval(interimInterval);
-                            interimInterval = null;
-                            clearInterval(progressInterval);
-                            progressInterval = null;
-                            conversationDiv.removeChild(typingIndicatorWrapper);
+                        const aiMessageWrapper = document.createElement('div');
+                        aiMessageWrapper.className = 'message-wrapper ai';
+                        aiMessageWrapper.dataset.id = data.id;
+                        const aiMessage = document.createElement('div');
+                        aiMessage.className = 'message ai';
+                        const textSpan = document.createElement('span');
+                        textSpan.className = 'text';
+                        aiMessage.appendChild(textSpan);
+                        aiMessageWrapper.appendChild(aiMessage);
+                        conversationDiv.appendChild(aiMessageWrapper);
+                        conversationHistory.push({ id: data.id, role: 'ai', content: data.response });
+                        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
 
-                            const aiMessageWrapper = document.createElement('div');
-                            aiMessageWrapper.className = 'message-wrapper ai';
-                            aiMessageWrapper.dataset.id = data.id;
-                            const aiMessage = document.createElement('div');
-                            aiMessage.className = 'message ai';
-                            const textSpan = document.createElement('span');
-                            textSpan.className = 'text';
-                            aiMessage.appendChild(textSpan);
-                            aiMessageWrapper.appendChild(aiMessage);
-                            conversationDiv.appendChild(aiMessageWrapper);
+                        const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse.";
+                        let i = 0;
+                        const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
+                        let autoScroll = isAtBottom;
+                        const scrollListener = () => {
+                            autoScroll = false;
+                            conversationDiv.removeEventListener('scroll', scrollListener);
+                        };
+                        conversationDiv.addEventListener('scroll', scrollListener);
 
-                            const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
-                            let i = 0;
-                            const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
-                            let autoScroll = isAtBottom;
-                            const scrollListener = () => {
-                                autoScroll = false;
-                                conversationDiv.removeEventListener('scroll', scrollListener);
-                            };
-                            conversationDiv.addEventListener('scroll', scrollListener);
-
-                            currentTypeInterval = setInterval(() => {
-                                if (i < fullResponse.length) {
-                                    textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
-                                    i++;
-                                    if (autoScroll) scrollToBottom();
-                                } else {
-                                    clearInterval(currentTypeInterval);
-                                    currentTypeInterval = null;
-                                    aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                                    sendButtonImg.src = '/static/img/arrow-dark.png';
-                                    sendButtonImg.alt = 'Send';
-                                    if (autoScroll) scrollToBottom();
-                                    userInput.focus();
-                                    document.getElementById('notification-sound').play();
-                                }
-                            }, 3);
-                        } else {
-                            textDiv.textContent = currentText;
-                            messageDiv.appendChild(timestampSpan);
-                        }
-                    } else if (e.key === 'Escape') {
+                        currentTypeInterval = setInterval(() => {
+                            if (i < fullResponse.length) {
+                                textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
+                                i++;
+                                if (autoScroll) scrollToBottom();
+                            } else {
+                                clearInterval(currentTypeInterval);
+                                currentTypeInterval = null;
+                                aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
+                                sendButtonImg.src = '/static/img/arrow-dark.png';
+                                sendButtonImg.alt = 'Send';
+                                if (autoScroll) scrollToBottom();
+                                userInput.focus();
+                                document.getElementById('notification-sound').play();
+                            }
+                        }, 3);
+                    } else {
                         textDiv.textContent = currentText;
                         messageDiv.appendChild(timestampSpan);
                     }
-                });
+                } else if (e.key === 'Escape') {
+                    textDiv.textContent = currentText;
+                    messageDiv.appendChild(timestampSpan);
+                }
+            });
 
-                input.addEventListener('blur', () => {
-                    if (textDiv.contains(input)) {
-                        textDiv.textContent = currentText;
-                        messageDiv.appendChild(timestampSpan);
-                    }
-                });
-            }
-        });
+            input.addEventListener('blur', () => {
+                if (textDiv.contains(input)) {
+                    textDiv.textContent = currentText;
+                    messageDiv.appendChild(timestampSpan);
+                }
+            });
+        }
+    });
 
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-                modal.style.display = 'flex';
-                modal.focus();
-            }
-        });
-
-        clearBtn.addEventListener('click', () => {
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
             modal.style.display = 'flex';
             modal.focus();
-        });
-
-        function clearConversation() {
-            stopGeneration();
-            fetch('/api/clear', { method: 'POST' });
-            conversationDiv.innerHTML = '';
-            initialScreen.style.display = 'flex';
-            conversationDiv.style.display = 'none';
-            inputArea.style.display = 'none';
-            let modAngle = ((currentRotation % 360) + 360) % 360;
-            if (modAngle !== 0) {
-                currentRotation -= modAngle;
-                sendButton.style.transform = `rotate(${currentRotation}deg)`;
-            }
-            sendButtonImg.src = '/static/img/arrow-dark.png';
-            sendButtonImg.alt = 'Send';
-            scrollToBottom();
-            modal.style.display = 'none';
-            setWelcomeMessage();
-            initialInput.focus();
         }
+    });
 
-        modalClearBtn.addEventListener('click', clearConversation);
-        modal.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') clearConversation();
-        });
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.style.display = 'none';
-        });
+    clearBtn.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        modal.focus();
+    });
 
-        themeToggle.addEventListener('click', () => {
-            themeToggle.classList.toggle('theme-toggle--toggled');
-            if (themeToggle.classList.contains('theme-toggle--toggled')) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                localStorage.setItem('theme', 'dark');
-                clearBtnImg.src = '/static/img/new-light.png';
-                helpBtnImg.src = '/static/img/help-light.png';
-                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
-                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png'; // Light in dark mode
-                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png'; // Light in dark mode
-            } else {
-                document.documentElement.setAttribute('data-theme', 'light');
-                localStorage.setItem('theme', 'light');
-                clearBtnImg.src = '/static/img/new-dark.png';
-                helpBtnImg.src = '/static/img/help-dark.png';
-                document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
-                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png'; // Dark in light mode
-                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png'; // Dark in light mode
-            }
-            updateNavbarBorderPosition();
-        });
-        
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        if (currentTheme === 'dark') {
-            themeToggle.classList.add('theme-toggle--toggled');
+    function clearConversation() {
+        stopGeneration();
+        fetch('/api/clear', { method: 'POST' });
+        conversationDiv.innerHTML = `
+            <div id="video-header">
+                <video autoplay muted loop playsinline>
+                    <source src="/static/video/header-video.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="message-wrapper ai">
+                <div class="message">
+                    <div class="text"><em>Disclaimer: I am Gita AI</em></div>
+                    <span class="timestamp"></span>
+                </div>
+            </div>
+        `;
+        conversationHistory = [];
+        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+        initialScreen.style.display = 'flex';
+        conversationDiv.style.display = 'none';
+        inputArea.style.display = 'none';
+        let modAngle = ((currentRotation % 360) + 360) % 360;
+        if (modAngle !== 0) {
+            currentRotation -= modAngle;
+            sendButton.style.transform = `rotate(${currentRotation}deg)`;
+        }
+        sendButtonImg.src = '/static/img/arrow-dark.png';
+        sendButtonImg.alt = 'Send';
+        scrollToBottom();
+        modal.style.display = 'none';
+        setWelcomeMessage();
+        initialInput.focus();
+    }
+
+    modalClearBtn.addEventListener('click', clearConversation);
+    modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') clearConversation();
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    themeToggle.addEventListener('click', () => {
+        themeToggle.classList.toggle('theme-toggle--toggled');
+        if (themeToggle.classList.contains('theme-toggle--toggled')) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
             clearBtnImg.src = '/static/img/new-light.png';
             helpBtnImg.src = '/static/img/help-light.png';
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png'; // Light in dark mode
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png'; // Light in dark mode
+            document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
         } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
             clearBtnImg.src = '/static/img/new-dark.png';
             helpBtnImg.src = '/static/img/help-dark.png';
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png'; // Dark in light mode
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png'; // Dark in light mode
+            document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
         }
-
-        helpBtn.addEventListener('click', () => {
-            helpModal.style.display = 'flex';
-        });
-        helpCloseBtn.addEventListener('click', () => {
-            helpModal.style.display = 'none';
-        });
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) helpModal.style.display = 'none';
-        });
-
         updateNavbarBorderPosition();
-        window.addEventListener('resize', updateNavbarBorderPosition);
+    });
 
-        scrollToBottom();
-        setWelcomeMessage();
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    if (currentTheme === 'dark') {
+        themeToggle.classList.add('theme-toggle--toggled');
+        clearBtnImg.src = '/static/img/new-light.png';
+        helpBtnImg.src = '/static/img/help-light.png';
+        document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
+        document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
+    } else {
+        clearBtnImg.src = '/static/img/new-dark.png';
+        helpBtnImg.src = '/static/img/help-dark.png';
+        document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
+        document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
+    }
 
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                initialInput.focus();
-            }, 100);
-        });
-    </script>
+    helpBtn.addEventListener('click', () => {
+        helpModal.style.display = 'flex';
+    });
+    helpCloseBtn.addEventListener('click', () => {
+        helpModal.style.display = 'none';
+    });
+    helpModal.addEventListener('click', (e) => {
+        if (e.target === helpModal) helpModal.style.display = 'none';
+    });
+
+    // Load initial history
+    window.addEventListener('load', () => {
+        if (conversationHistory.length) {
+            conversationDiv.innerHTML = `
+                <div id="video-header">
+                    <video autoplay muted loop playsinline>
+                        <source src="/static/video/header-video.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            `;
+            conversationHistory.forEach(entry => {
+                const wrapper = document.createElement('div');
+                wrapper.className = `message-wrapper ${entry.role}`;
+                wrapper.dataset.id = entry.id;
+                wrapper.innerHTML = `
+                    <div class="message ${entry.role}">
+                        <div class="text">${entry.role === 'ai' ? marked.parse(entry.content) : entry.content}</div>
+                        <span class="timestamp">${getTimestamp()}</span>
+                    </div>
+                    ${entry.role === 'user' ? `<button class="edit-btn"><img src="${document.documentElement.getAttribute('data-theme') === 'dark' ? '/static/img/edit-light.png' : '/static/img/edit-dark.png'}" alt="Edit"></button>` : ''}
+                `;
+                conversationDiv.appendChild(wrapper);
+            });
+            initialScreen.style.display = 'none';
+            conversationDiv.style.display = 'block';
+            inputArea.style.display = 'flex';
+            scrollToBottom();
+        }
+        setTimeout(() => {
+            initialInput.focus();
+        }, 100);
+    });
+
+    updateNavbarBorderPosition();
+    window.addEventListener('resize', updateNavbarBorderPosition);
+
+    scrollToBottom();
+    setWelcomeMessage();
+</script>
 </body>
 </html>
