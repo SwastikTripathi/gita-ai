@@ -1,11 +1,11 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
+import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from huggingface_hub import InferenceClient
 import os
 import logging
 import json
-from verse_embeddings import verse_embeddings, gita_df  # Import precomputed data
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -23,25 +23,24 @@ if not HF_API_KEY:
     raise ValueError("HF_API_KEY environment variable is not set")
 client = InferenceClient(token=HF_API_KEY)
 
-# Load Sentence Transformer model for query encoding (not embeddings)
+# Load Bhagavad Gita data from CSV using absolute path relative to script
+gita_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'bhagwad_gita.csv'))
+
+# Load Sentence Transformer model and compute embeddings
 st_model = SentenceTransformer('all-MiniLM-L6-v2')
+verse_meanings = gita_df['EngMeaning'].tolist()
+verse_embeddings = st_model.encode(verse_meanings, convert_to_tensor=False)
+verse_embeddings = np.array(verse_embeddings)
 
-# Load pre-saved answers
-try:
-    with open('api/pre_saved_answers.json', 'r', encoding='utf-8') as f:
-        pre_saved_data = json.load(f)
-    pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
-    pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
-    pre_saved_embeddings = st_model.encode(pre_saved_questions, convert_to_tensor=False)
-    pre_saved_embeddings = np.array(pre_saved_embeddings)
-except FileNotFoundError:
-    logger.error("pre_saved_answers.json not found in api/ directory")
-    raise
-except Exception as e:
-    logger.error(f"Error loading pre-saved answers: {str(e)}")
-    raise
+# Load pre-saved answers using absolute path relative to script
+with open(os.path.join(os.path.dirname(__file__), 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
+    pre_saved_data = json.load(f)
+pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
+pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
+pre_saved_embeddings = st_model.encode(pre_saved_questions, convert_to_tensor=False)
+pre_saved_embeddings = np.array(pre_saved_embeddings)
 
-# In-memory conversation storage (non-persistent in Vercel)
+# In-memory conversation storage (note: non-persistent in serverless)
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1"):
@@ -55,7 +54,7 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1"):
             top_p=0.9,
             repetition_penalty=1.1
         )
-        logger.info(f"API response for model '{model}': {response[:50]}...")
+        logger.info(f"API response for model '{model}': {response}")
         return response.strip()
     except Exception as e:
         logger.error(f"Error generating text with Hugging Face API: {str(e)}")
@@ -63,16 +62,12 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1"):
 
 def get_most_relevant_verse(query):
     """Return the most relevant verse row from the Bhagavad Gita based on the query."""
-    try:
-        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
-        similarities = np.dot(verse_embeddings, query_embedding) / (
-            np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
-        )
-        most_similar_idx = np.argmax(similarities)
-        return gita_df.iloc[most_similar_idx]
-    except Exception as e:
-        logger.error(f"Error in get_most_relevant_verse: {str(e)}")
-        raise
+    query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+    similarities = np.dot(verse_embeddings, query_embedding) / (
+        np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
+    )
+    most_similar_idx = np.argmax(similarities)
+    return gita_df.iloc[most_similar_idx]
 
 def is_guidance_query(query):
     """Determine if the user's query is seeking guidance, advice, or wisdom."""
@@ -80,52 +75,41 @@ def is_guidance_query(query):
     return any(keyword in query.lower() for keyword in guidance_keywords) or query.strip().endswith('?')
 
 def get_guidance_response(query):
-    """Generate a guidance response with empathy and verse explanation."""
-    try:
-        relevant_verse = get_most_relevant_verse(query)
-        shlok = relevant_verse['Shloka']
-        transliteration = relevant_verse['Transliteration']
-        translation = relevant_verse['EngMeaning']
-        
-        prompt = (
-            f"User's query: {query}\n\n"
-            f"Verse translation: {translation}\n\n"
-            "First provide two sentences of empathy acknowledging the user's feelings without repeating their query.\n"
-            "Then write \"000\"\n"
-            "Then give a detailed explanation that relates the verse to the user's query, including modern-day examples. Use simple English.\n"
-        )
-        
-        response = generate_text(prompt)
-        logger.info(f"Raw AI response for guidance query '{query}':\n{response[:100]}...")
-        
-        parts = [part.strip() for part in response.split('000')]
-        empathy = parts[0] if len(parts) == 2 else "I understand that you might be feeling uncertain or seeking guidance. Many people experience similar challenges in their lives."
-        explanation = parts[1] if len(parts) == 2 else response.strip()
-        
-        transliteration_lines = transliteration.split(' .\n')
-        formatted_transliteration = '\n\n'.join(transliteration_lines)
-        explanation_paragraphs = [para.strip() for para in explanation.split('\n') if para.strip()]
-        formatted_explanation = '<br><br>'.join(explanation_paragraphs) if explanation_paragraphs else explanation
-        formatted_shlok = '<br>'.join(shlok.split(' | '))
+    relevant_verse = get_most_relevant_verse(query)
+    shlok = relevant_verse['Shloka']
+    transliteration = relevant_verse['Transliteration']
+    translation = relevant_verse['EngMeaning']
+    
+    prompt = (
+        f"User's query: {query}\n\n"
+        f"Verse translation: {translation}\n\n"
+        "First provide two sentences of empathy acknowledging the user's feelings without repeating their query.\n"
+        "Then write \"000\"\n"
+        "Then give a detailed explanation that relates the verse to the user's query, including modern-day examples. Use simple English.\n"
+    )
+    
+    response = generate_text(prompt)
+    logger.info(f"Raw AI response for guidance query '{query}':\n{response}")
+    
+    parts = [part.strip() for part in response.split('000')]
+    if len(parts) == 2:
+        empathy, explanation = parts
+    else:
+        empathy = "I understand that you might be feeling uncertain or seeking guidance. Many people experience similar challenges in their lives."
+        explanation = response.strip()
+    
+    transliteration_lines = transliteration.split(' .\n')
+    formatted_transliteration = '\n\n'.join(transliteration_lines)
+    explanation_paragraphs = [para.strip() for para in explanation.split('\n') if para.strip()]
+    formatted_explanation = '<br><br>'.join(explanation_paragraphs) if explanation_paragraphs else explanation
+    formatted_shlok = '<br>'.join(shlok.split(' | '))
 
-        formatted_response = (
-            empathy + "\n\n"
-            + '<blockquote><span style="font-size: 1.2em; font-weight: bold; font-family: \'Noto Sans Devanagari\', \'Mangal\', sans-serif;">' + formatted_shlok + '</span></blockquote>' + "\n\n"
-            + formatted_transliteration + "<br><br>"
-            + formatted_explanation
-        )
-        return formatted_response
-    except Exception as e:
-        logger.error(f"Error in get_guidance_response: {str(e)}")
-        raise
-
-@app.route('/')
-def serve_index():
-    try:
-        return send_from_directory('../static', 'index.html')
-    except Exception as e:
-        logger.error(f"Error serving index.html: {str(e)}")
-        return jsonify({"error": "Failed to serve the page"}), 500
+    return (
+        empathy + "\n\n"
+        + '<blockquote><span style="font-size: 1.2em; font-weight: bold; font-family: \'Noto Sans Devanagari\', \'Mangal\', sans-serif;">' + formatted_shlok + '</span></blockquote>' + "\n\n"
+        + formatted_transliteration + "<br><br>"
+        + formatted_explanation
+    )
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -173,14 +157,10 @@ def chat():
 
 @app.route('/api/random_verse', methods=['GET'])
 def random_verse():
-    try:
-        random_row = gita_df.sample(n=1).iloc[0]
-        verse = random_row['Shloka']
-        meaning = random_row['EngMeaning']
-        return jsonify({"verse": verse, "meaning": meaning})
-    except Exception as e:
-        logger.error(f"Error in /api/random_verse endpoint: {str(e)}")
-        return jsonify({"error": "Failed to fetch a random verse"}), 500
+    random_row = gita_df.sample(n=1).iloc[0]
+    verse = random_row['Shloka']
+    meaning = random_row['EngMeaning']
+    return jsonify({"verse": verse, "meaning": meaning})
 
 @app.route('/api/update_message', methods=['POST'])
 def update_message():
@@ -238,3 +218,6 @@ def clear_conversation():
     except Exception as e:
         logger.error(f"Error in /api/clear endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
