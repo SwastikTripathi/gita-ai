@@ -2,4 +2,4 @@ flask
 pandas
 numpy
 requests
-huggingface_hub
+sentence-transformers
