@@ -1,9 +1,20 @@
+<!DOCTYPE html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bhagavad Gita AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        (function() {            
+            localStorage.setItem('theme', 'dark');
+            const storedTheme = localStorage.getItem('theme');
+            console.log('Stored theme in head:', storedTheme);
+            const currentTheme = storedTheme || 'dark';
+            console.log('Setting theme in head to:', currentTheme);
+            document.documentElement.setAttribute('data-theme', currentTheme);
+        })();
+    </script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/theme-toggles@4.10.1/css/simple.css">
     <style>
         /* Theme Variables */
@@ -262,7 +273,7 @@
         #conversation {
             flex-grow: 1;
             overflow-y: auto;
-            padding: auto 20px 80px 20px; /* Dynamic padding for 30vh video + buffer */
+            padding: 20px 20px 80px 20px; /* Dynamic padding for 30vh video + buffer */
             background: var(--bg-color);
             display: none;
         }
@@ -903,9 +914,10 @@
         });
 
         async function fetchRandomVerse() {
-            const response = await fetch('/api/random_verse');
+            const response = await fetch('/random_verse');
             const data = await response.json();
             currentVerse = data;
+            // Split the verse at ' | ' and join with <br> for line breaks
             const formattedVerse = String(data.verse || "").split(' | ').join(' |<br>');
             data.meaning = data.meaning.replace(/^\d+(\.\d+)?\s*/, '');
             document.getElementById('verse-content').innerHTML = `
@@ -916,11 +928,13 @@
         function showVerseDisplay() {
             verseDisplay.classList.add('open');
             if (!currentVerse) fetchRandomVerse();
+            // Start shuffling every 15 seconds
             verseShuffleInterval = setInterval(fetchRandomVerse, 15000);
         }
         
         function hideVerseDisplay() {
             verseDisplay.classList.remove('open');
+            // Stop shuffling when hidden
             if (verseShuffleInterval) {
                 clearInterval(verseShuffleInterval);
                 verseShuffleInterval = null;
@@ -1113,7 +1127,7 @@
             currentFetchController = new AbortController();
             let data;
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: message, id: userId }),
@@ -1289,13 +1303,13 @@
                             }, 5000);
 
                             currentFetchController = new AbortController();
-                            await fetch('/api/update_message', {
+                            await fetch('/update_message', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
                             });
 
-                            const response = await fetch('/api/regenerate_after', {
+                            const response = await fetch('/regenerate_after', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ id: wrapper.dataset.id }),
@@ -1381,7 +1395,7 @@
 
         function clearConversation() {
             stopGeneration();
-            fetch('/api/clear', { method: 'POST' });
+            fetch('/clear', { method: 'POST' });
             conversationDiv.innerHTML = '';
             initialScreen.style.display = 'flex';
             conversationDiv.style.display = 'none';
@@ -1415,16 +1429,16 @@
                 clearBtnImg.src = '/static/img/new-light.png';
                 helpBtnImg.src = '/static/img/help-light.png';
                 document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
-                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
-                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
+                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png'; // Light in dark mode
+                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png'; // Light in dark mode
             } else {
                 document.documentElement.setAttribute('data-theme', 'light');
                 localStorage.setItem('theme', 'light');
                 clearBtnImg.src = '/static/img/new-dark.png';
                 helpBtnImg.src = '/static/img/help-dark.png';
                 document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
-                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
-                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
+                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png'; // Dark in light mode
+                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png'; // Dark in light mode
             }
             updateNavbarBorderPosition();
         });
@@ -1435,13 +1449,13 @@
             themeToggle.classList.add('theme-toggle--toggled');
             clearBtnImg.src = '/static/img/new-light.png';
             helpBtnImg.src = '/static/img/help-light.png';
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png'; // Light in dark mode
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png'; // Light in dark mode
         } else {
             clearBtnImg.src = '/static/img/new-dark.png';
             helpBtnImg.src = '/static/img/help-dark.png';
-            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
-            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png'; // Dark in light mode
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png'; // Dark in light mode
         }
 
         helpBtn.addEventListener('click', () => {
