@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
 import pandas as pd
+import numpy as np
+from sentence_transformers import SentenceTransformer
 import requests
 import os
 import logging
 import json
-from collections import Counter
+from datetime import datetime
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -16,33 +18,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load ARLIAI API key from environment variable
+# Load ARLIAI API key from environment variable (set in Vercel dashboard)
 ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
 if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
-
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
-# Load Bhagavad Gita data
+# Load Bhagavad Gita data and embeddings using absolute paths
 gita_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'bhagwad_gita.csv'))
-verse_meanings = gita_df['EngMeaning'].tolist()
+verse_embeddings = np.load(os.path.join(os.path.dirname(__file__), 'verse_embeddings.npy'))
+with open(os.path.join(os.path.dirname(__file__), 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
+    pre_saved_data = json.load(f)
+pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
+pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
+pre_saved_embeddings = np.load(os.path.join(os.path.dirname(__file__), 'pre_saved_embeddings.npy'))
 
-# Load pre-saved answers (optional, if you still want to use them)
-try:
-    with open(os.path.join(os.path.dirname(__file__), 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
-        pre_saved_data = json.load(f)
-    pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
-    pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
-except FileNotFoundError:
-    logger.warning("pre_saved_answers.json not found, skipping pre-saved answers")
-    pre_saved_questions = []
-    pre_saved_answers = []
+# Initialize SentenceTransformer for queries
+st_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# In-memory conversation storage (non-persistent in serverless)
-conversation_history = {}
+# File to store user queries (use /tmp for Vercel's writable filesystem)
+QUERY_LOG_FILE = '/tmp/user_queries.json'
+
+def log_user_query(query, user_id):
+    """Append user query to a JSON file in /tmp."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "user_id": user_id,
+        "query": query
+    }
+    try:
+        if os.path.exists(QUERY_LOG_FILE):
+            with open(QUERY_LOG_FILE, 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                data.append(entry)
+                f.seek(0)
+                json.dump(data, f, indent=2)
+        else:
+            with open(QUERY_LOG_FILE, 'w', encoding='utf-8') as f:
+                json.dump([entry], f, indent=2)
+    except Exception as e:
+        logger.error(f"Error logging query: {str(e)}")
+        # Fallback: append as a new line in case of issues
+        with open(QUERY_LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry) + '\n')
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
-    """Calls the Arliai API and returns the generated text."""
+    """Call Arliai API for text generation."""
     payload = {
         "model": model,
         "messages": [
@@ -60,29 +81,56 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         'Authorization': f"Bearer {ARLIAI_API_KEY}"
     }
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=8)
         response.raise_for_status()
-        response_json = response.json()
-        generated_text = response_json["choices"][0]["message"]["content"]
-        logger.info(f"API response for model '{model}': {generated_text}")
-        return generated_text.strip()
+        return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        logger.error(f"Error generating text with Arliai API: {str(e)}")
+        logger.error(f"Error with Arliai API: {str(e)}")
         raise
 
-def get_jaccard_similarity(str1, str2):
-    """Compute Jaccard similarity between two strings based on word overlap."""
-    words1 = set(str1.lower().split())
-    words2 = set(str2.lower().split())
-    intersection = len(words1 & words2)
-    union = len(words1 | words2)
-    return intersection / union if union > 0 else 0
-
 def get_most_relevant_verse(query):
-    """Return the most relevant verse row based on keyword similarity."""
-    similarities = [get_jaccard_similarity(query, meaning) for meaning in verse_meanings]
-    most_similar_idx = similarities.index(max(similarities))
+    """Find the most relevant Gita verse."""
+    query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+    similarities = np.dot(verse_embeddings, query_embedding) / (
+        np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
+    )
+    most_similar_idx = np.argmax(similarities)
     return gita_df.iloc[most_similar_idx]
+
+def is_guidance_query(query):
+    """Check if query seeks guidance."""
+    guidance_keywords = ['guidance', 'insight', 'help', 'advice', 'confused', 'lost', 'question']
+    return any(keyword in query.lower() for keyword in guidance_keywords) or query.strip().endswith('?')
+
+def get_guidance_response(query):
+    """Generate guidance response with verse."""
+    relevant_verse = get_most_relevant_verse(query)
+    shlok = relevant_verse['Shloka']
+    transliteration = relevant_verse['Transliteration']
+    translation = relevant_verse['EngMeaning']
+    
+    prompt = (
+        f"User's query: {query}\n\n"
+        f"Verse translation: {translation}\n\n"
+        "First provide two sentences of empathy acknowledging the user's feelings without repeating their query.\n"
+        "Then write \"000\"\n"
+        "Then give a detailed explanation relating the verse to the user's query with modern examples. Use simple English."
+    )
+    
+    response = generate_text(prompt, max_new_tokens=500)
+    parts = [part.strip() for part in response.split('000')]
+    empathy = parts[0] if len(parts) == 2 else "It’s totally normal to feel unsure sometimes. Lots of us face similar moments."
+    explanation = parts[1] if len(parts) == 2 else response.strip()
+    
+    formatted_shlok = '<br>'.join(shlok.split(' | '))
+    formatted_transliteration = '\n\n'.join(transliteration.split(' .\n'))
+    formatted_explanation = '<br><br>'.join([p.strip() for p in explanation.split('\n') if p.strip()])
+    
+    return (
+        f"{empathy}\n\n"
+        f'<blockquote><span style="font-size: 1.2em; font-weight: bold; font-family: \'Noto Sans Devanagari\', \'Mangal\', sans-serif;">{formatted_shlok}</span></blockquote>\n\n'
+        f"{formatted_transliteration}<br><br>{formatted_explanation}"
+    )
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -90,169 +138,48 @@ def chat():
         data = request.json
         query = data.get('message', '')
         user_id = data.get('id', '')
+        history = data.get('history', [])  # Client sends history (optional)
+
         if not query or not user_id:
             return jsonify({"error": "No message or ID provided"}), 400
 
-        conversation_history[user_id] = {"role": "user", "content": query}
-        logger.info(f"Stored user message: {query}, ID: {user_id}")
+        # Log the query
+        log_user_query(query, user_id)
 
-        if query.endswith('?'):
-            # Gita quote logic
-            relevant_verse = get_most_relevant_verse(query)
-            shloka = relevant_verse['Shloka']
-            transliteration = relevant_verse['Transliteration']
-            translation = relevant_verse['EngMeaning']
-            
-            prompt = (
-                f"User query: {query}\n\n"
-                f"Relevant verse from the Bhagavad Gita:\n"
-                f"Shloka: {shloka}\n"
-                f"Transliteration: {transliteration}\n"
-                f"Translation: {translation}\n\n"
-                f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
-                f"Format your response in Markdown."
-            )
-            logger.info(f"Sending prompt to Arliai: {prompt[:100]}...")
-            
-            response = generate_text(prompt, max_new_tokens=150)
-            logger.info(f"Arliai response: {response[:50]}...")
-            
-            explanation = response.strip()
-            formatted_response = (
-                f"### Hindi Shlok\n{shloka}\n\n"
-                f"### Transliteration\n{transliteration}\n\n"
-                f"### Explanation\n{explanation}"
-            )
+        # Check pre-saved answers
+        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+        similarities = np.dot(pre_saved_embeddings, query_embedding) / (
+            np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
+        )
+        max_similarity = np.max(similarities)
+        if max_similarity > 0.8:
+            most_similar_idx = np.argmax(similarities)
+            formatted_response = pre_saved_answers[most_similar_idx]
+            logger.info(f"Pre-saved answer used for '{query}' (similarity: {max_similarity})")
         else:
-            # Check pre-saved answers first (if available)
-            if pre_saved_questions:
-                similarities = [get_jaccard_similarity(query, q) for q in pre_saved_questions]
-                max_similarity = max(similarities)
-                if max_similarity > 0.5:
-                    most_similar_idx = similarities.index(max_similarity)
-                    formatted_response = pre_saved_answers[most_similar_idx]
-                    logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
-                else:
-                    prompt = (
-                        f"The user said: '{query}'. "
-                        f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
-                        f"Format your response in Markdown."
-                    )
-                    logger.info(f"Sending prompt to Arliai: {prompt}")
-                    response = generate_text(prompt, max_new_tokens=100)
-                    logger.info(f"Arliai response: {response}")
-                    formatted_response = response.strip()
+            if is_guidance_query(query):
+                formatted_response = get_guidance_response(query)
             else:
                 prompt = (
-                    f"The user said: '{query}'. "
-                    f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
-                    f"Format your response in Markdown."
+                    f"The user said: '{query}'. Respond concisely and friendly, no Bhagavad Gita references. "
+                    f"Format in Markdown."
                 )
-                logger.info(f"Sending prompt to Arliai: {prompt}")
-                response = generate_text(prompt, max_new_tokens=100)
-                logger.info(f"Arliai response: {response}")
-                formatted_response = response.strip()
+                formatted_response = generate_text(prompt, max_new_tokens=100)
 
         ai_id = f"ai_{user_id}"
-        conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
-        logger.info(f"Stored AI response, ID: {ai_id}")
-
         return jsonify({"response": formatted_response, "id": ai_id})
-    
     except Exception as e:
-        logger.error(f"Error in /api/chat endpoint: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+        logger.error(f"Error in /api/chat: {str(e)}")
+        return jsonify({"response": "Sorry, something went wrong!", "id": f"ai_{user_id if 'user_id' in locals() else 'unknown'}"}), 500
 
-@app.route('/api/update_message', methods=['POST'])
-def update_message():
-    try:
-        data = request.json
-        message_id = data.get('id', '')
-        new_content = data.get('content', '')
-        if not message_id or not new_content:
-            return jsonify({"error": "No ID or content provided"}), 400
-
-        if message_id in conversation_history and conversation_history[message_id]["role"] == "user":
-            conversation_history[message_id]["content"] = new_content
-            logger.info(f"Updated message ID {message_id} to: {new_content}")
-            return jsonify({"success": True})
-        else:
-            return jsonify({"error": "Message not found or not editable"}), 404
-
-    except Exception as e:
-        logger.error(f"Error in /api/update_message endpoint: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
-
-@app.route('/api/regenerate_after', methods=['POST'])
-def regenerate_after():
-    try:
-        data = request.json
-        user_id = data.get('id', '')
-        if not user_id or user_id not in conversation_history:
-            return jsonify({"error": "Invalid or missing user message ID"}), 400
-
-        query = conversation_history[user_id]["content"]
-        logger.info(f"Regenerating for query: {query}")
-
-        if query.endswith('?'):
-            relevant_verse = get_most_relevant_verse(query)
-            shloka = relevant_verse['Shloka']
-            transliteration = relevant_verse['Transliteration']
-            translation = relevant_verse['EngMeaning']
-            
-            prompt = (
-                f"User query: {query}\n\n"
-                f"Relevant verse from the Bhagavad Gita:\n"
-                f"Shloka: {shloka}\n"
-                f"Transliteration: {transliteration}\n"
-                f"Translation: {translation}\n\n"
-                f"Provide a brief explanation (2-3 sentences) of how this verse relates to the user's query and what lessons can be learned from it in this context. "
-                f"Format your response in Markdown."
-            )
-            logger.info(f"Sending prompt to Arliai: {prompt[:100]}...")
-            
-            response = generate_text(prompt, max_new_tokens=150)
-            logger.info(f"Arliai response: {response[:50]}...")
-            
-            explanation = response.strip()
-            formatted_response = (
-                f"### Hindi Shlok\n{shloka}\n\n"
-                f"### Transliteration\n{transliteration}\n\n"
-                f"### Explanation\n{explanation}"
-            )
-        else:
-            prompt = (
-                f"The user said: '{query}'. "
-                f"Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
-                f"Format your response in Markdown."
-            )
-            logger.info(f"Sending prompt to Arliai: {prompt}")
-            
-            response = generate_text(prompt, max_new_tokens=100)
-            logger.info(f"Arliai response: {response}")
-            
-            formatted_response = response.strip()
-
-        ai_id = f"ai_{user_id}"
-        conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
-        logger.info(f"Stored regenerated AI response, ID: {ai_id}")
-
-        return jsonify({"response": formatted_response, "id": ai_id})
-
-    except Exception as e:
-        logger.error(f"Error in /api/regenerate_after endpoint: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+@app.route('/api/random_verse', methods=['GET'])
+def random_verse():
+    random_row = gita_df.sample(n=1).iloc[0]
+    return jsonify({"verse": random_row['Shloka'], "meaning": random_row['EngMeaning']})
 
 @app.route('/api/clear', methods=['POST'])
 def clear_conversation():
-    try:
-        global conversation_history
-        conversation_history = {}
-        logger.info("Conversation history cleared")
-        return jsonify({"success": True})
-    except Exception as e:
-        logger.error(f"Error in /api/clear endpoint: {str(e)}")
-        return jsonify({"error": "Something went wrong"}), 500
+    return jsonify({"success": True})  # Client handles clearing
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
