@@ -1,4 +1,5 @@
-Flask==3.0.3
-pandas==2.2.2
-numpy==1.26.4
-huggingface_hub==0.23.0
+flask
+pandas
+numpy
+requests
+huggingface_hub
