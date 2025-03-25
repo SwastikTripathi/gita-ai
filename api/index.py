@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
 from huggingface_hub import InferenceClient
@@ -26,42 +26,27 @@ HF_API_KEY = os.environ.get("HF_API_KEY")
 if not HF_API_KEY:
     raise ValueError("HF_API_KEY environment variable is not set")
 
-# Initialize Hugging Face Inference Client
 client = InferenceClient(token=HF_API_KEY)
+API_URL = "https://api.arliai.com/v1/chat/completions"
 
-# Define directories
-current_dir = os.path.dirname(__file__)
-static_dir = os.path.join(current_dir, '..', 'static')
+# Load Bhagavad Gita data and precomputed embeddings using absolute paths
+gita_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'bhagwad_gita.csv'))
+verse_embeddings = np.load(os.path.join(os.path.dirname(__file__), 'verse_embeddings.npy'))
 
-# Load Bhagavad Gita data and embeddings
-gita_df = pd.read_csv(os.path.join(current_dir, 'bhagwad_gita.csv'))
-verse_embeddings = np.load(os.path.join(current_dir, 'verse_embeddings.npy'))
-
-# Load pre-saved answers
-with open(os.path.join(current_dir, 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
+# Load pre-saved answers and their precomputed embeddings
+with open(os.path.join(os.path.dirname(__file__), 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
     pre_saved_data = json.load(f)
 pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
 pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
+pre_saved_embeddings = np.load(os.path.join(os.path.dirname(__file__), 'pre_saved_embeddings.npy'))
 
-# Compute pre-saved question embeddings using Hugging Face Inference API
-pre_saved_embeddings = []
-for question in pre_saved_questions:
-    raw_embedding = client.feature_extraction(
-        text=question,
-        model="sentence-transformers/all-MiniLM-L6-v2"
-    )
-    embedding = np.array(raw_embedding).flatten()
-    pre_saved_embeddings.append(embedding)
-pre_saved_embeddings = np.array(pre_saved_embeddings)
-
-# In-memory conversation storage
+# In-memory conversation storage (non-persistent in serverless)
 conversation_history = {}
 
-# ARLIAI API URL
-API_URL = "https://api.arliai.com/v1/chat/completions"
-
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
-    """Calls the ARLIAI API to generate text."""
+    """
+    Calls the Arliai API and returns the generated text.
+    """
     payload = {
         "model": model,
         "messages": [
@@ -86,11 +71,11 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         logger.info(f"API response for model '{model}': {generated_text}")
         return generated_text.strip()
     except Exception as e:
-        logger.error(f"Error generating text with ARLIAI API: {str(e)}")
+        logger.error(f"Error generating text with Arliai API: {str(e)}")
         raise
 
-def get_most_relevant_verse(query):
-    """Return the most relevant verse row using Hugging Face Inference API."""
+def get_query_embedding(query):
+    """Get query embedding using Hugging Face Inference API."""
     try:
         raw_embedding = client.feature_extraction(
             text=query,
@@ -98,24 +83,27 @@ def get_most_relevant_verse(query):
         )
         query_embedding = np.array(raw_embedding).flatten()
         if query_embedding.shape[0] != 384:
-            raise ValueError(f"Expected query embedding shape (384,), got {query_embedding.shape}")
-        dot_product = np.dot(verse_embeddings, query_embedding)
-        verse_norms = np.linalg.norm(verse_embeddings, axis=1)
-        query_norm = np.linalg.norm(query_embedding)
-        similarities = dot_product / (verse_norms * query_norm + 1e-8)
-        most_similar_idx = np.argmax(similarities)
-        return gita_df.iloc[most_similar_idx]
+            raise ValueError(f"Expected embedding shape (384,), got {query_embedding.shape}")
+        return query_embedding
     except Exception as e:
-        logger.error(f"Error in get_most_relevant_verse: {str(e)}")
+        logger.error(f"Error getting query embedding: {str(e)}")
         raise
 
+def get_most_relevant_verse(query):
+    """Return the most relevant verse row from the Bhagavad Gita based on the query."""
+    query_embedding = get_query_embedding(query)
+    similarities = np.dot(verse_embeddings, query_embedding) / (
+        np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
+    )
+    most_similar_idx = np.argmax(similarities)
+    return gita_df.iloc[most_similar_idx]
+
 def is_guidance_query(query):
-    """Check if the query seeks guidance."""
+    """Determine if the user's query is seeking guidance, advice, or wisdom."""
     guidance_keywords = ['guidance', 'insight', 'help', 'advice', 'confused', 'lost', 'question']
     return any(keyword in query.lower() for keyword in guidance_keywords) or query.strip().endswith('?')
 
 def get_guidance_response(query):
-    """Generate a guidance response with a relevant verse."""
     relevant_verse = get_most_relevant_verse(query)
     shlok = relevant_verse['Shloka']
     transliteration = relevant_verse['Transliteration']
@@ -133,29 +121,27 @@ def get_guidance_response(query):
     logger.info(f"Raw AI response for guidance query '{query}':\n{response}")
     
     parts = [part.strip() for part in response.split('000')]
-    empathy = parts[0] if len(parts) == 2 else "I understand that you might be feeling uncertain or seeking guidance. Many people face similar challenges."
-    explanation = parts[1] if len(parts) == 2 else response.strip()
+    if len(parts) == 2:
+        empathy, explanation = parts
+    else:
+        empathy = "I understand that you might be feeling uncertain or seeking guidance. Many people experience similar challenges in their lives."
+        explanation = response.strip()
     
+    transliteration_lines = transliteration.split(' .\n')
+    formatted_transliteration = '\n\n'.join(transliteration_lines)
+    explanation_paragraphs = [para.strip() for para in explanation.split('\n') if para.strip()]
+    formatted_explanation = '<br><br>'.join(explanation_paragraphs) if explanation_paragraphs else explanation
     formatted_shlok = '<br>'.join(shlok.split(' | '))
-    formatted_transliteration = '\n\n'.join(transliteration.split(' .\n'))
-    formatted_explanation = '<br><br>'.join([para.strip() for para in explanation.split('\n') if para.strip()]) or explanation
-
-    return (
-        f"{empathy}\n\n"
-        f'<blockquote><span style="font-size: 1.2em; font-weight: bold; font-family: \'Noto Sans Devanagari\', \'Mangal\', sans-serif;">{formatted_shlok}</span></blockquote>\n\n'
-        f"{formatted_transliteration}<br><br>"
-        f"{formatted_explanation}"
+    
+    formatted_response = (
+        empathy + "\n\n"
+        + '<blockquote><span style="font-size: 1.2em; font-weight: bold; font-family: \'Noto Sans Devanagari\', \'Mangal\', sans-serif;">' + formatted_shlok + '</span></blockquote>' + "\n\n"
+        + formatted_transliteration + "<br><br>"
+        + formatted_explanation
     )
+    return formatted_response
 
-@app.route('/')
-def serve_index():
-    return send_from_directory(static_dir, 'index.html')
-
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory(static_dir, path)
-
-@app.route('/chat', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         data = request.json
@@ -166,17 +152,11 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        # Compute query embedding for pre-saved answers
-        raw_embedding = client.feature_extraction(
-            text=query,
-            model="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        query_embedding = np.array(raw_embedding).flatten()
+        query_embedding = get_query_embedding(query)
         similarities = np.dot(pre_saved_embeddings, query_embedding) / (
-            np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
+            np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
         )
         max_similarity = np.max(similarities)
-        
         if max_similarity > 0.8:
             most_similar_idx = np.argmax(similarities)
             formatted_response = pre_saved_answers[most_similar_idx]
@@ -189,26 +169,26 @@ def chat():
                     f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                     "Format your response in Markdown for best readability."
                 )
-                formatted_response = generate_text(prompt, max_new_tokens=100).strip()
+                response = generate_text(prompt, max_new_tokens=100)
+                logger.info(f"Raw AI response for non-guidance query '{query}':\n{response}")
+                formatted_response = response.strip()
 
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
         return jsonify({"response": formatted_response, "id": ai_id})
     
     except Exception as e:
-        logger.error(f"Error in /chat endpoint: {str(e)}")
-        fallback_response = "I’m having trouble generating a response right now. Please try again later."
-        ai_id = f"ai_{user_id if 'user_id' in locals() else 'unknown'}"
-        if 'user_id' in locals():
-            conversation_history[ai_id] = {"role": "ai", "content": fallback_response}
-        return jsonify({"response": fallback_response, "id": ai_id}), 500
+        logger.error(f"Error in /api/chat endpoint: {str(e)}")
+        return jsonify({"error": "Something went wrong"}), 500
 
-@app.route('/random_verse', methods=['GET'])
+@app.route('/api/random_verse', methods=['GET'])
 def random_verse():
     random_row = gita_df.sample(n=1).iloc[0]
-    return jsonify({"verse": random_row['Shloka'], "meaning": random_row['EngMeaning']})
+    verse = random_row['Shloka']
+    meaning = random_row['EngMeaning']
+    return jsonify({"verse": verse, "meaning": meaning})
 
-@app.route('/update_message', methods=['POST'])
+@app.route('/api/update_message', methods=['POST'])
 def update_message():
     try:
         data = request.json
@@ -220,12 +200,14 @@ def update_message():
         if message_id in conversation_history and conversation_history[message_id]["role"] == "user":
             conversation_history[message_id]["content"] = new_content
             return jsonify({"success": True})
-        return jsonify({"error": "Message not found or not editable"}), 404
+        else:
+            return jsonify({"error": "Message not found or not editable"}), 404
+
     except Exception as e:
-        logger.error(f"Error in /update_message endpoint: {str(e)}")
+        logger.error(f"Error in /api/update_message endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
 
-@app.route('/regenerate_after', methods=['POST'])
+@app.route('/api/regenerate_after', methods=['POST'])
 def regenerate_after():
     try:
         data = request.json
@@ -241,23 +223,26 @@ def regenerate_after():
                 f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                 "Format your response in Markdown for best readability."
             )
-            formatted_response = generate_text(prompt, max_new_tokens=100).strip()
+            response = generate_text(prompt, max_new_tokens=100)
+            logger.info(f"Raw AI response for non-guidance query (regenerate) '{query}':\n{response}")
+            formatted_response = response.strip()
 
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
         return jsonify({"response": formatted_response, "id": ai_id})
+
     except Exception as e:
-        logger.error(f"Error in /regenerate_after endpoint: {str(e)}")
+        logger.error(f"Error in /api/regenerate_after endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
 
-@app.route('/clear', methods=['POST'])
+@app.route('/api/clear', methods=['POST'])
 def clear_conversation():
     try:
         global conversation_history
         conversation_history = {}
         return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Error in /clear endpoint: {str(e)}")
+        logger.error(f"Error in /api/clear endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
 
 if __name__ == '__main__':
