@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
+from sentence_transformers import SentenceTransformer
 import requests
 import os
 import logging
@@ -31,6 +32,13 @@ with open(os.path.join(BASE_DIR, 'pre_saved_answers.json'), 'r', encoding='utf-8
 pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
 pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
 pre_saved_embeddings = np.load(os.path.join(BASE_DIR, 'pre_saved_embeddings.npy'))
+
+# Load SentenceTransformer model (only for queries)
+try:
+    st_model = SentenceTransformer('all-MiniLM-L6-v2')
+except Exception as e:
+    logger.error(f"Failed to load SentenceTransformer model: {str(e)}")
+    st_model = None
 
 # In-memory conversation storage
 conversation_history = {}
@@ -66,22 +74,20 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
 
 def get_most_relevant_verse(query):
     """Return the most relevant verse row based on precomputed embeddings."""
-    # Use Arliai API to generate embedding for the query
-    prompt = f"Generate a sentence embedding for this text using a model like all-MiniLM-L6-v2: '{query}'"
-    embedding_response = generate_text(prompt, max_new_tokens=384)  # Embedding size for all-MiniLM-L6-v2 is 384
-    try:
-        # Parse the embedding (assuming API returns a stringified list)
-        query_embedding = np.array(json.loads(embedding_response))
-    except Exception as e:
-        logger.error(f"Failed to parse embedding from API: {str(e)}")
-        # Fallback: random verse if embedding fails
+    if st_model is None:
+        logger.warning(f"Fallback to random verse for query '{query}' due to SentenceTransformer failure")
         return gita_df.sample(n=1).iloc[0]
-
-    similarities = np.dot(verse_embeddings, query_embedding) / (
-        np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
-    )
-    most_similar_idx = np.argmax(similarities)
-    return gita_df.iloc[most_similar_idx]
+    
+    try:
+        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+        similarities = np.dot(verse_embeddings, query_embedding) / (
+            np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
+        )
+        most_similar_idx = np.argmax(similarities)
+        return gita_df.iloc[most_similar_idx]
+    except Exception as e:
+        logger.error(f"Error encoding query '{query}' with SentenceTransformer: {str(e)}")
+        return gita_df.sample(n=1).iloc[0]
 
 def is_guidance_query(query):
     """Determine if the user's query is seeking guidance, advice, or wisdom."""
@@ -130,27 +136,24 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        # Use Arliai API to generate embedding for the query
-        prompt = f"Generate a sentence embedding for this text using a model like all-MiniLM-L6-v2: '{query}'"
-        embedding_response = generate_text(prompt, max_new_tokens=384)
-        try:
-            query_embedding = np.array(json.loads(embedding_response))
-        except Exception as e:
-            logger.error(f"Failed to parse embedding from API: {str(e)}")
-            query_embedding = None
-
-        if query_embedding is not None:
-            similarities = np.dot(pre_saved_embeddings, query_embedding) / (
-                np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
-            )
-            max_similarity = np.max(similarities)
-            if max_similarity > 0.8:
-                most_similar_idx = np.argmax(similarities)
-                formatted_response = pre_saved_answers[most_similar_idx]
-                logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
-            else:
+        if st_model is not None:
+            try:
+                query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+                similarities = np.dot(pre_saved_embeddings, query_embedding) / (
+                    np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
+                )
+                max_similarity = np.max(similarities)
+                if max_similarity > 0.8:
+                    most_similar_idx = np.argmax(similarities)
+                    formatted_response = pre_saved_answers[most_similar_idx]
+                    logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
+                else:
+                    formatted_response = None
+            except Exception as e:
+                logger.error(f"Error encoding query '{query}' with SentenceTransformer: {str(e)}")
                 formatted_response = None
         else:
+            logger.warning(f"Skipping pre-saved answer check due to SentenceTransformer failure")
             formatted_response = None
 
         if formatted_response is None:
