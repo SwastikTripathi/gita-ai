@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
-from sentence_transformers import SentenceTransformer
 import requests
 import os
 import logging
@@ -17,27 +16,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load ARLIAI API key from environment variable (required for Vercel)
+# Load ARLIAI API key from environment variable
 ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
 if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
-# Load data with absolute paths for Vercel's serverless environment
+# Load data with absolute paths
 BASE_DIR = os.path.dirname(__file__)
 gita_df = pd.read_csv(os.path.join(BASE_DIR, 'bhagwad_gita.csv'))
-st_model = SentenceTransformer('all-MiniLM-L6-v2')
-verse_meanings = gita_df['EngMeaning'].tolist()
-verse_embeddings = np.array(st_model.encode(verse_meanings, convert_to_tensor=False))
-
-# Load pre-saved answers
+verse_embeddings = np.load(os.path.join(BASE_DIR, 'verse_embeddings.npy'))
 with open(os.path.join(BASE_DIR, 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
     pre_saved_data = json.load(f)
 pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
 pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
-pre_saved_embeddings = np.array(st_model.encode(pre_saved_questions, convert_to_tensor=False))
+pre_saved_embeddings = np.load(os.path.join(BASE_DIR, 'pre_saved_embeddings.npy'))
 
-# In-memory conversation storage (serverless, so no persistent storage)
+# In-memory conversation storage
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
@@ -59,7 +54,7 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         'Authorization': f"Bearer {ARLIAI_API_KEY}"
     }
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=8)  # Vercel timeout consideration
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=8)
         response.raise_for_status()
         response_json = response.json()
         generated_text = response_json["choices"][0]["message"]["content"]
@@ -70,8 +65,18 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         raise
 
 def get_most_relevant_verse(query):
-    """Return the most relevant verse row from the Bhagavad Gita based on the query."""
-    query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+    """Return the most relevant verse row based on precomputed embeddings."""
+    # Use Arliai API to generate embedding for the query
+    prompt = f"Generate a sentence embedding for this text using a model like all-MiniLM-L6-v2: '{query}'"
+    embedding_response = generate_text(prompt, max_new_tokens=384)  # Embedding size for all-MiniLM-L6-v2 is 384
+    try:
+        # Parse the embedding (assuming API returns a stringified list)
+        query_embedding = np.array(json.loads(embedding_response))
+    except Exception as e:
+        logger.error(f"Failed to parse embedding from API: {str(e)}")
+        # Fallback: random verse if embedding fails
+        return gita_df.sample(n=1).iloc[0]
+
     similarities = np.dot(verse_embeddings, query_embedding) / (
         np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
     )
@@ -125,16 +130,30 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
-        similarities = np.dot(pre_saved_embeddings, query_embedding) / (
-            np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
-        )
-        max_similarity = np.max(similarities)
-        if max_similarity > 0.8:
-            most_similar_idx = np.argmax(similarities)
-            formatted_response = pre_saved_answers[most_similar_idx]
-            logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
+        # Use Arliai API to generate embedding for the query
+        prompt = f"Generate a sentence embedding for this text using a model like all-MiniLM-L6-v2: '{query}'"
+        embedding_response = generate_text(prompt, max_new_tokens=384)
+        try:
+            query_embedding = np.array(json.loads(embedding_response))
+        except Exception as e:
+            logger.error(f"Failed to parse embedding from API: {str(e)}")
+            query_embedding = None
+
+        if query_embedding is not None:
+            similarities = np.dot(pre_saved_embeddings, query_embedding) / (
+                np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
+            )
+            max_similarity = np.max(similarities)
+            if max_similarity > 0.8:
+                most_similar_idx = np.argmax(similarities)
+                formatted_response = pre_saved_answers[most_similar_idx]
+                logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
+            else:
+                formatted_response = None
         else:
+            formatted_response = None
+
+        if formatted_response is None:
             if is_guidance_query(query):
                 formatted_response = get_guidance_response(query)
             else:
