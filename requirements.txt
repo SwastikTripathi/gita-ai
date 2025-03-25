@@ -1,7 +1,5 @@
-# requirements.txt
 flask
 pandas
 numpy
-sentence-transformers==2.2.2  # Older, lighter version
+sentence-transformers
 requests
-torch==1.13.1  # Pin a specific, smaller PyTorch version
