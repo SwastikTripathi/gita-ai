@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
+from sentence_transformers import SentenceTransformer
 import requests
 import os
 import logging
