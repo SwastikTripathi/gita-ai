@@ -8,33 +8,33 @@
     <style>
         /* Theme Variables */
         :root {
-            --bg-color: #FFF5E6; /* light saffron */
-            --text-color: #333333; /* dark gray for readability */
-            --message-text-ai: #000080; /* navy blue for Krishna */
-            --message-text-user: #8B4513; /* saddle brown for the seeker */
-            --button-bg: #FF9933; /* saffron */
-            --button-text: #FFFFFF; /* white */
-            --input-bg: #FFFFFF; /* white */
-            --input-border: #B0BEC5; /* light gray */
-            --accent-blue: #1E90FF; /* dodger blue */
-            --accent-green: #FFD700; /* gold, repurposed as wisdom */
+            --bg-color: #FFF5E6;
+            --text-color: #333333;
+            --message-text-ai: #000080;
+            --message-text-user: #8B4513;
+            --button-bg: #FF9933;
+            --button-text: #FFFFFF;
+            --input-bg: #FFFFFF;
+            --input-border: #B0BEC5;
+            --accent-blue: #1E90FF;
+            --accent-green: #FFD700;
             --scrollbar-thumb: #B0BEC5;
             --hover-bg: #E0E0E0;
-            --input-hover-bg: #F7F7F7; /* Slightly lighter than #FFFFFF for light mode */
+            --input-hover-bg: #F7F7F7;
         }
         [data-theme="dark"] {
-            --bg-color: #1C2526; /* dark teal */
-            --text-color: #E0E0E0; /* light gray */
-            --message-text-ai: #ADD8E6; /* light blue for divine wisdom */
-            --message-text-user: #FFD700; /* gold for enlightenment */
-            --message-bg-user: #4B2E2A; /* dark brown */
-            --button-bg: #FF9933; /* saffron */
-            --button-text: #1C2526; /* dark teal for contrast */
+            --bg-color: #1C2526;
+            --text-color: #E0E0E0;
+            --message-text-ai: #ADD8E6;
+            --message-text-user: #FFD700;
+            --message-bg-user: #4B2E2A;
+            --button-bg: #FF9933;
+            --button-text: #1C2526;
             --input-bg: #2A3B47;
             --input-border: #546E7A;
             --scrollbar-thumb: #546E7A;
             --hover-bg: #546E7A;
-            --input-hover-bg: #334047; /* Slightly lighter than #2A3B47 for dark mode */
+            --input-hover-bg: #334047;
         }
         html {
             overflow-y: scroll;
@@ -103,6 +103,12 @@
             width: 18px;
             height: 18px;
             vertical-align: middle;
+        }
+        .verse-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
         }
         .navbar-border {
             width: 50%;
@@ -177,7 +183,7 @@
             border-radius: 12px;
             font-size: 14px;
             background: var(--input-bg);
-            color: var(--text-color); /* Changed from --input-text to match theme */
+            color: var(--text-color);
             resize: none;
             overflow: hidden;
             height: 60px;
@@ -210,7 +216,7 @@
             vertical-align: middle;
         }
         #initial-send-button:hover {
-            background: #E68A00; /* Darker saffron for hover */
+            background: #E68A00;
         }
         [data-theme="dark"] #initial-send-button:hover {
             background: #E68A00;
@@ -225,7 +231,7 @@
             display: flex;
             justify-content: center;
             gap: 10px;
-            flex-wrap: wrap; /* Allow wrapping for smaller screens */
+            flex-wrap: wrap;
         }
         .prompt-btn {
             padding: 10px 20px;
@@ -251,12 +257,12 @@
             color: var(--button-text);
         }
         [data-theme="dark"] .prompt-btn:hover {
-            background: #E68A00; /* Darker saffron for dark mode hover */
+            background: #E68A00;
         }
         #conversation {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 20px 20px 80px 20px;
+            padding: auto 20px 80px 20px; /* Dynamic padding for 30vh video + buffer */
             background: var(--bg-color);
             display: none;
         }
@@ -355,7 +361,7 @@
             border: 1px solid var(--input-border);
             border-radius: 6px;
             background: var(--input-bg);
-            color: var(--text-color); /* Changed from --input-text */
+            color: var(--text-color);
             font-size: 14px;
             resize: none;
             overflow: hidden;
@@ -363,14 +369,17 @@
             max-height: 150px;
         }
         .cursor {
-            display: inline;
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
             margin-left: 2px;
-            animation: blink 0.7s infinite;
+            animation: glow 1.5s infinite alternate;
         }
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0; }
-            100% { opacity: 1; }
+        @keyframes glow {
+            from { box-shadow: 0 0 5px rgba(255,255,255,0.5); }
+            to { box-shadow: 0 0 10px rgba(255,255,255,1); }
         }
         .input-area {
             display: none;
@@ -393,7 +402,7 @@
             border-radius: 12px;
             font-size: 14px;
             background: var(--input-bg);
-            color: var(--text-color); /* Changed from --input-text */
+            color: var(--text-color);
             resize: none;
             overflow: hidden;
             min-height: 30px;
@@ -427,7 +436,7 @@
             vertical-align: middle;
         }
         #send-button:hover {
-            background: #E68A00; /* Darker saffron for hover */
+            background: #E68A00;
         }
         [data-theme="dark"] #send-button:hover {
             background: #E68A00;
@@ -488,6 +497,96 @@
             max-width: 640px;
             z-index: 999;
         }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--button-bg);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #loading-spinner {
+            text-align: center;
+        }
+        #loading-spinner img {
+            width: 100px;
+            height: auto;
+            display: block;
+            margin: 0 auto 10px;
+        }
+        #interim-message {
+            position: relative;
+            overflow: hidden;
+            height: 20px;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #78909C;
+        }
+        #interim-message span {
+            position: absolute;
+            width: 100%;
+            left: 0;
+            animation: scroll-up 10s infinite;
+        }
+        @keyframes scroll-up {
+            0% { top: 20px; opacity: 0; }
+            10% { top: 0; opacity: 1; }
+            90% { top: 0; opacity: 1; }
+            100% { top: -20px; opacity: 0; }
+        }
+        #wait-progress {
+            width: 30vw;
+            height: 5px;
+            border: none;
+            background: var(--input-border);
+            margin: 10px auto;
+            display: block;
+        }
+        progress::-webkit-progress-bar {
+            background: var(--input-border);
+        }
+        progress::-webkit-progress-value {
+            background: var(--button-bg);
+        }
+        progress::-moz-progress-bar {
+            background: var(--button-bg);
+        }
+        .verse-display {
+            position: fixed;
+            text-align: center;
+            word-wrap: break-word;
+            top: 50%;
+            right: -30vw; /* Fully out of window when hidden */
+            width: 30vw;
+            background: var(--bg-color);
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            transition: right 0.5s ease;
+            z-index: 1000;
+            transform: translateY(-50%);
+            padding-bottom: 20px;
+        }
+        .verse-display.open {
+            right: 0; /* Slides into view */
+        }
+        #verse-content {
+            margin: 10px 0;
+            font-size: 0.8em;
+            padding: 20px;
+            padding-bottom: 0;
+        }
+        #prev-verse, #next-verse {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 0 10px;
+        }
         @media (min-width: 600px) {
             .edit-input {
                 max-height: 450px;
@@ -546,19 +645,18 @@
                 box-shadow: none;
             }
         }
-        /* Waterdrop Button */
         #waterdrop-btn {
             display: flex;
             align-items: center;
             justify-content: center;
             position: fixed;
-            bottom: 20%; /* 10% above the bottom */
-            right: 0; /* Extreme right when closed */
+            bottom: 20%;
+            right: 0;
             width: 40px;
             height: 40px;
             background: var(--button-bg);
             border: none;
-            border-radius: 50% 0 0 50%; /* Waterdrop shape, flat on right */
+            border-radius: 50% 0 0 50%;
             cursor: pointer;
             z-index: 12;
             transition: right 0.3s ease, transform 0.3s ease, background 0.3s ease;
@@ -570,14 +668,12 @@
         [data-theme="dark"] #waterdrop-btn:hover {
             background: #E68A00;
         }
-
-        /* Sliding Menu */
         .sliding-menu {
             position: fixed;
-            bottom: 10%; /* Aligned with button */
-            right: -100%; /* Fully hidden offscreen initially */
+            bottom: 10%;
+            right: -100%;
             background: var(--bg-color);
-            box-shadow: none; /* Remove shadow */
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -585,29 +681,49 @@
             z-index: 11;
             transition: right 0.3s ease;
             border-radius: 8px 0 0 8px;
-            padding: 15px; /* Increased from 10px to 15px for more padding */
-            max-width: 30vw; /* Maximum width of 30% of viewport width */
+            padding: 15px;
+            max-width: 30vw;
         }
         .sliding-menu.open {
-            right: 0; /* Slides fully into view */
+            right: 0;
         }
         .sliding-menu p {
             margin: 10px 0;
             font-size: 14px;
             color: var(--text-color);
             text-align: center;
-            word-wrap: break-word; /* Allow text to wrap */
+            word-wrap: break-word;
         }
         .sliding-menu a {
-            color: var(--button-bg); /* Normally saffron from --button-bg */
+            color: var(--button-bg);
             text-decoration: none;
-            font-size: 12px; /* Matches the reduced font size */
+            font-size: 12px;
             transition: color 0.3s ease;
             word-wrap: break-word;
         }
-        
         .sliding-menu a:hover {
-            color: #E68A00; /* Darker saffron on hover */
+            color: #E68A00;
+        }
+        #video-header {
+            top: 0;
+            width: 100vw; /* Full window width */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9; /* Below input-area (11) but above messages */
+            background: var(--bg-color); /* Match chat background */
+            margin-left: 0; /* Explicitly ensure no offset */
+            position: relative; /* Ensure it respects parent flow while stretching */
+        }        
+        #video-header video {
+            width: 100%;
+            height: 30vh; /* Set height to 30% of viewport height */
+            display: block;
+            object-fit: contain;
+        }
+        .verse-arrow {
+            width: 18px; /* Adjust size as needed */
+            height: 18px;
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -619,6 +735,9 @@
             </div>
         </a>
         <div class="icons">
+            <button class="verse-btn" title="View Random Verses">
+                <img src="/static/img/random.png" alt="Verses">
+            </button>
             <button class="help-btn" id="help-btn" title="Help"><img src="/static/img/help-dark.png" alt="Help"></button>
             <button class="clear-btn" id="clear-btn" title="Clear Conversation"><img src="/static/img/new-dark.png" alt="Clear"></button>
             <button id="theme-toggle-btn" class="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
@@ -636,8 +755,9 @@
     <div class="navbar-border"></div>
     <div class="chat-window">
         <div class="initial-screen">
-            <h1 class="welcome-line1" id="initial-greeting">Hare Krishna, welcome to Bhagavad Gita AI</h1>
+            <h1 class="welcome-line1" id="initial-greeting">Hare Krishna, welcome to GitaLive</h1>
             <h1 class="welcome-line2" id="welcome-line2">How can I help you this morning?</h1>
+            <p style="font-size: 12px; color: #78909C; margin-top: 10px;">Note: Responses may take up to 2 minutes due to deep analysis.</p>
             <div class="initial-input-container">
                 <textarea id="initial-input" placeholder="Ask a question..."></textarea>
                 <button id="initial-send-button" title="Send"><img src="/static/img/arrow-dark.png" alt="Send"></button>
@@ -647,7 +767,7 @@
                     <button class="prompt-btn" onclick="setPrompt('What is the purpose of life?')">What is the purpose of life?</button>
                     <button class="prompt-btn" onclick="setPrompt('How can I find peace?')">How can I find peace?</button>
                     <button class="prompt-btn" onclick="setPrompt('What is true happiness?')">What is true happiness?</button>
-                    </div>
+                </div>
                 <div class="row">
                     <button class="prompt-btn" onclick="setPrompt('How to overcome fear?')">How to overcome fear?</button>
                     <button class="prompt-btn" onclick="setPrompt('What is my duty?')">What is my duty?</button>
@@ -655,6 +775,12 @@
             </div>
         </div>
         <div id="conversation">
+            <div id="video-header">
+                <video autoplay muted loop playsinline>
+                    <source src="/static/video/header-video.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
             <div class="message-wrapper ai">
                 <div class="message">
                     <div class="text"><em>Disclaimer: I am Gita AI</em></div>
@@ -666,6 +792,11 @@
             <textarea id="user-input" placeholder="Ask a question..."></textarea>
             <button id="send-button" title="Send"><img src="/static/img/arrow-dark.png" alt="Send"></button>
         </div>
+    </div>
+    <div id="verse-display" class="verse-display">
+        <div id="verse-content"></div>
+        <button id="prev-verse"><img src="/static/img/left-arrow-dark.png" alt="Previous Verse" class="verse-arrow"></button>
+        <button id="next-verse"><img src="/static/img/right-arrow-dark.png" alt="Next Verse" class="verse-arrow"></button>
     </div>
     <div class="version-label">Bhagavad Gita AI v1.0</div>
 
@@ -682,7 +813,8 @@
             <p>Welcome to Bhagavad Gita AI. Here’s how to use it:</p>
             <ul>
                 <li>Type your message and press Enter or click Send to chat.</li>
-                <li>Hover over your messages and click the edit icon below to edit them.</li>
+                <li>Responses may take up to 2 minutes due to deep analysis.</li>
+                <li>Hover over your messages and click the edit icon to edit them.</li>
                 <li>Press Ctrl+Shift+C or click the trash icon to clear the conversation.</li>
                 <li>Toggle between light and dark themes using the theme button.</li>
             </ul>
@@ -691,21 +823,40 @@
     </div>
 
     <audio id="notification-sound" src="static/notification.mp3" preload="auto"></audio>
-        
-    <!-- Waterdrop Button -->
+    
     <button id="waterdrop-btn" title="Support Me">
         <img src="/static/img/coffee-cup.png" alt="Coffee Cup" style="width: 24px; height: 24px; vertical-align: middle;">
     </button>
 
-    <!-- Sliding Menu -->
     <div id="sliding-menu" class="sliding-menu">
-        <p style="font-size: 12px;">some text</p>
+        <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee</a>? I would love to hear your response</p>
     </div>
 
     <script>
+        let verseShuffleInterval = null;
         let currentTypeInterval = null;
         let currentFetchController = null;
         let currentRotation = 0;
+        let interimInterval = null;
+        let progressInterval = null;
+        let currentVerse = null;
+        let responseReceived = false;
+        let verseTimeout;
+
+        const interimMessages = [
+            "Searching the scriptures...",
+            "Consulting the sages...",
+            "Finding wisdom for you...",
+            "Reflecting on your query...",
+            "Skimming the old books...",
+            "Texting the wise folks...",
+            "Digging up some answers...",
+            "Mulling over your question...",
+            "Checking my notes real quick...",
+            "Asking around the brain trust...",
+            "Rifling through the files...",
+            "Puzzling this one out..."
+        ];
 
         const initialInput = document.getElementById('initial-input');
         const initialSendButton = document.getElementById('initial-send-button');
@@ -726,33 +877,67 @@
         const initialScreen = document.querySelector('.initial-screen');
         const initialGreeting = document.getElementById('initial-greeting');
         const welcomeLine2 = document.getElementById('welcome-line2');
-
-                const waterdropBtn = document.getElementById('waterdrop-btn');
+        const waterdropBtn = document.getElementById('waterdrop-btn');
         const slidingMenu = document.getElementById('sliding-menu');
+        const verseBtn = document.querySelector('.verse-btn');
+        const verseDisplay = document.getElementById('verse-display');
 
         waterdropBtn.addEventListener('click', () => {
             const isOpen = slidingMenu.classList.contains('open');
-            const menuWidth = slidingMenu.offsetWidth; /* Dynamic width, respects max-width */
-            const buttonWidth = waterdropBtn.offsetWidth; /* Button width, typically 40px */
-
+            const menuWidth = slidingMenu.offsetWidth;
+            const buttonWidth = waterdropBtn.offsetWidth;
             if (isOpen) {
                 slidingMenu.classList.remove('open');
-                waterdropBtn.style.right = '0'; /* Back to extreme right */
+                waterdropBtn.style.right = '0';
             } else {
                 slidingMenu.classList.add('open');
-                waterdropBtn.style.right = `${menuWidth}px`; /* Aligns button’s right with menu’s left */
+                waterdropBtn.style.right = `${menuWidth}px`;
             }
         });
 
-        // Close menu when clicking outside
         document.addEventListener('click', (e) => {
             if (!slidingMenu.contains(e.target) && !waterdropBtn.contains(e.target) && slidingMenu.classList.contains('open')) {
                 slidingMenu.classList.remove('open');
-                waterdropBtn.style.right = '0'; /* Reset button position */
+                waterdropBtn.style.right = '0';
             }
         });
+
+        async function fetchRandomVerse() {
+            const response = await fetch('/api/random_verse');
+            const data = await response.json();
+            currentVerse = data;
+            const formattedVerse = String(data.verse || "").split(' | ').join(' |<br>');
+            data.meaning = data.meaning.replace(/^\d+(\.\d+)?\s*/, '');
+            document.getElementById('verse-content').innerHTML = `
+                <strong>${formattedVerse}</strong><br><br>${data.meaning}
+            `;
+        }
+
+        function showVerseDisplay() {
+            verseDisplay.classList.add('open');
+            if (!currentVerse) fetchRandomVerse();
+            verseShuffleInterval = setInterval(fetchRandomVerse, 15000);
+        }
         
-        // Function to determine time of day
+        function hideVerseDisplay() {
+            verseDisplay.classList.remove('open');
+            if (verseShuffleInterval) {
+                clearInterval(verseShuffleInterval);
+                verseShuffleInterval = null;
+            }
+        }
+
+        verseBtn.addEventListener('click', () => {
+            if (verseDisplay.classList.contains('open')) {
+                hideVerseDisplay();
+            } else {
+                showVerseDisplay();
+            }
+        });
+
+        document.getElementById('next-verse').addEventListener('click', fetchRandomVerse);
+        document.getElementById('prev-verse').addEventListener('click', fetchRandomVerse);
+
         function getTimeOfDay() {
             const now = new Date();
             const hours = now.getHours();
@@ -762,13 +947,11 @@
             else return "night";
         }
 
-        // Set welcome message with time of day
         function setWelcomeMessage() {
             const timeOfDay = getTimeOfDay();
             welcomeLine2.textContent = `How can I help you this ${timeOfDay}?`;
         }
 
-        // Set prompt in initial input and trigger send
         function setPrompt(prompt) {
             initialInput.value = prompt;
             sendMessage('initial');
@@ -800,7 +983,7 @@
                 if (lastAiMessage) {
                     const textSpan = lastAiMessage.querySelector('.text');
                     if (textSpan) {
-                        const currentText = textSpan.textContent.replace('|', '');
+                        const currentText = textSpan.textContent;
                         lastAiMessage.innerHTML = `<div class="text">${marked.parse(currentText)}</div><span class="timestamp">${getTimestamp()}</span>`;
                     }
                 }
@@ -809,10 +992,41 @@
                 currentFetchController.abort();
                 currentFetchController = null;
             }
+            if (interimInterval) {
+                clearInterval(interimInterval);
+                interimInterval = null;
+            }
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            const typingIndicatorWrapper = conversationDiv.querySelector('.message-wrapper.ai:last-child');
+            if (typingIndicatorWrapper && typingIndicatorWrapper.querySelector('#loading-spinner')) {
+                conversationDiv.removeChild(typingIndicatorWrapper);
+            }
             sendButtonImg.src = '/static/img/arrow-dark.png';
             sendButtonImg.alt = 'Send';
             scrollToBottom();
             userInput.focus();
+            clearTimeout(verseTimeout);
+            hideVerseDisplay();
+        }
+
+        function startInterimMessages() {
+            const interimDiv = document.getElementById('interim-message');
+        
+            interimInterval = setInterval(() => {
+                if (!responseReceived) {
+                    const randomIndex = Math.floor(Math.random() * interimMessages.length);
+                    const newMessage = document.createElement('span');
+                    newMessage.textContent = interimMessages[randomIndex];
+                    interimDiv.innerHTML = '';
+                    interimDiv.appendChild(newMessage);
+                } else {
+                    clearInterval(interimInterval);
+                    interimInterval = null;
+                }
+            }, 10000);
         }
 
         async function sendMessage(messageSource = 'user') {
@@ -861,18 +1075,40 @@
             typingIndicatorWrapper.className = 'message-wrapper ai';
             const typingIndicator = document.createElement('div');
             typingIndicator.className = 'message ai';
-            typingIndicator.textContent = 'Processing...';
+            typingIndicator.innerHTML = `
+                <div id="loading-spinner">
+                    <img src="static/img/flute.gif" alt="Loading flute animation">
+                    <p id="interim-message"><span>Processing...</span></p>
+                    <progress id="wait-progress" max="100" value="0"></progress>
+                </div>
+            `;
             typingIndicatorWrapper.appendChild(typingIndicator);
             conversationDiv.appendChild(typingIndicatorWrapper);
             scrollToBottom();
             sendButtonImg.src = '/static/img/stop-dark.png';
             sendButtonImg.alt = 'Stop';
 
-            let dots = 0;
-            const typingInterval = setInterval(() => {
-                dots = (dots + 1) % 4;
-                typingIndicator.textContent = 'Processing' + '.'.repeat(dots);
-            }, 500);
+            responseReceived = false;
+            startInterimMessages();
+
+            const progressBar = document.getElementById('wait-progress');
+            let progress = 0;
+            const maxWaitTime = 120000; // 2 minutes in milliseconds
+            progressInterval = setInterval(() => {
+                if (!responseReceived) {
+                    progress += (1000 / maxWaitTime) * 100;
+                    progressBar.value = Math.min(progress, 100);
+                } else {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+            }, 1000);
+
+            verseTimeout = setTimeout(() => {
+                if (!responseReceived) {
+                    showVerseDisplay();
+                }
+            }, 5000);
 
             currentFetchController = new AbortController();
             let data;
@@ -884,16 +1120,28 @@
                     signal: currentFetchController.signal
                 });
                 data = await response.json();
+                responseReceived = true;
+                clearTimeout(verseTimeout);
+                hideVerseDisplay();
+                clearInterval(interimInterval);
+                interimInterval = null;
+                clearInterval(progressInterval);
+                progressInterval = null;
+                conversationDiv.removeChild(typingIndicatorWrapper);
             } catch (error) {
-                clearInterval(typingInterval);
+                responseReceived = true;
+                clearTimeout(verseTimeout);
+                hideVerseDisplay();
+                clearInterval(interimInterval);
+                interimInterval = null;
+                clearInterval(progressInterval);
+                progressInterval = null;
                 conversationDiv.removeChild(typingIndicatorWrapper);
                 sendButtonImg.src = '/static/img/arrow-dark.png';
                 sendButtonImg.alt = 'Send';
                 userInput.focus();
                 return;
             }
-            clearInterval(typingInterval);
-            conversationDiv.removeChild(typingIndicatorWrapper);
 
             const aiMessageWrapper = document.createElement('div');
             aiMessageWrapper.className = 'message-wrapper ai';
@@ -902,10 +1150,6 @@
             aiMessage.className = 'message ai';
             const textSpan = document.createElement('span');
             textSpan.className = 'text';
-            const cursorSpan = document.createElement('span');
-            cursorSpan.className = 'cursor';
-            cursorSpan.textContent = '|';
-            textSpan.appendChild(cursorSpan);
             aiMessage.appendChild(textSpan);
             aiMessageWrapper.appendChild(aiMessage);
             conversationDiv.appendChild(aiMessageWrapper);
@@ -919,11 +1163,10 @@
                 conversationDiv.removeEventListener('scroll', scrollListener);
             };
             conversationDiv.addEventListener('scroll', scrollListener);
-
+            
             currentTypeInterval = setInterval(() => {
                 if (i < fullResponse.length) {
-                    textSpan.textContent = fullResponse.slice(0, i + 1);
-                    textSpan.appendChild(cursorSpan);
+                    textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
                     i++;
                     if (autoScroll) scrollToBottom();
                 } else {
@@ -936,7 +1179,7 @@
                     userInput.focus();
                     document.getElementById('notification-sound').play();
                 }
-            }, 3);
+            }, 3); // Slower typing effect
         }
 
         sendButton.addEventListener('click', () => sendMessage('user'));
@@ -990,7 +1233,7 @@
                     else input.style.overflowY = 'hidden';
                 });
 
-                input.addEventListener('keydown', (e) => {
+                input.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         const newText = input.value.trim();
@@ -1010,85 +1253,101 @@
                             typingIndicatorWrapper.className = 'message-wrapper ai';
                             const typingIndicator = document.createElement('div');
                             typingIndicator.className = 'message ai';
-                            typingIndicator.textContent = 'Processing...';
+                            typingIndicator.innerHTML = `
+                                <div id="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <p id="interim-message"><span>Processing...</span></p>
+                                    <progress id="wait-progress" max="100" value="0"></progress>
+                                </div>
+                            `;
                             typingIndicatorWrapper.appendChild(typingIndicator);
                             conversationDiv.appendChild(typingIndicatorWrapper);
                             scrollToBottom();
                             sendButtonImg.src = '/static/img/stop-dark.png';
                             sendButtonImg.alt = 'Stop';
 
-                            let dots = 0;
-                            const typingInterval = setInterval(() => {
-                                dots = (dots + 1) % 4;
-                                typingIndicator.textContent = 'Processing' + '.'.repeat(dots);
-                            }, 500);
+                            responseReceived = false;
+                            startInterimMessages();
+
+                            const progressBar = document.getElementById('wait-progress');
+                            let progress = 0;
+                            const maxWaitTime = 120000;
+                            progressInterval = setInterval(() => {
+                                if (!responseReceived) {
+                                    progress += (1000 / maxWaitTime) * 100;
+                                    progressBar.value = Math.min(progress, 100);
+                                } else {
+                                    clearInterval(progressInterval);
+                                    progressInterval = null;
+                                }
+                            }, 1000);
+
+                            verseTimeout = setTimeout(() => {
+                                if (!responseReceived) {
+                                    showVerseDisplay();
+                                }
+                            }, 5000);
 
                             currentFetchController = new AbortController();
-
-                            fetch('/api/update_message', {
+                            await fetch('/api/update_message', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ id: wrapper.dataset.id, content: newText })
-                            }).then(() => {
-                                fetch('/api/regenerate_after', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ id: wrapper.dataset.id }),
-                                    signal: currentFetchController.signal
-                                }).then(response => response.json()).then(data => {
-                                    clearInterval(typingInterval);
-                                    conversationDiv.removeChild(typingIndicatorWrapper);
+                            });
 
-                                    const aiMessageWrapper = document.createElement('div');
-                                    aiMessageWrapper.className = 'message-wrapper ai';
-                                    aiMessageWrapper.dataset.id = data.id;
-                                    const aiMessage = document.createElement('div');
-                                    aiMessage.className = 'message ai';
-                                    const textSpan = document.createElement('span');
-                                    textSpan.className = 'text';
-                                    const cursorSpan = document.createElement('span');
-                                    cursorSpan.className = 'cursor';
-                                    cursorSpan.textContent = '|';
-                                    textSpan.appendChild(cursorSpan);
-                                    aiMessage.appendChild(textSpan);
-                                    aiMessageWrapper.appendChild(aiMessage);
-                                    conversationDiv.appendChild(aiMessageWrapper);
+                            const response = await fetch('/api/regenerate_after', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: wrapper.dataset.id }),
+                                signal: currentFetchController.signal
+                            });
+                            const data = await response.json();
+                            responseReceived = true;
+                            clearTimeout(verseTimeout);
+                            hideVerseDisplay();
+                            clearInterval(interimInterval);
+                            interimInterval = null;
+                            clearInterval(progressInterval);
+                            progressInterval = null;
+                            conversationDiv.removeChild(typingIndicatorWrapper);
 
-                                    const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
-                                    let i = 0;
-                                    const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
-                                    let autoScroll = isAtBottom;
-                                    const scrollListener = () => {
-                                        autoScroll = false;
-                                        conversationDiv.removeEventListener('scroll', scrollListener);
-                                    };
-                                    conversationDiv.addEventListener('scroll', scrollListener);
+                            const aiMessageWrapper = document.createElement('div');
+                            aiMessageWrapper.className = 'message-wrapper ai';
+                            aiMessageWrapper.dataset.id = data.id;
+                            const aiMessage = document.createElement('div');
+                            aiMessage.className = 'message ai';
+                            const textSpan = document.createElement('span');
+                            textSpan.className = 'text';
+                            aiMessage.appendChild(textSpan);
+                            aiMessageWrapper.appendChild(aiMessage);
+                            conversationDiv.appendChild(aiMessageWrapper);
 
-                                    currentTypeInterval = setInterval(() => {
-                                        if (i < fullResponse.length) {
-                                            textSpan.textContent = fullResponse.slice(0, i + 1);
-                                            textSpan.appendChild(cursorSpan);
-                                            i++;
-                                            if (autoScroll) scrollToBottom();
-                                        } else {
-                                            clearInterval(currentTypeInterval);
-                                            currentTypeInterval = null;
-                                            aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
-                                            sendButtonImg.src = '/static/img/arrow-dark.png';
-                                            sendButtonImg.alt = 'Send';
-                                            if (autoScroll) scrollToBottom();
-                                            userInput.focus();
-                                            document.getElementById('notification-sound').play();
-                                        }
-                                    }, 3);
-                                }).catch(error => {
-                                    clearInterval(typingInterval);
-                                    conversationDiv.removeChild(typingIndicatorWrapper);
+                            const fullResponse = data.response || "Sorry, I couldn’t find a suitable verse from the Bhagavad Gita for your query.";
+                            let i = 0;
+                            const isAtBottom = Math.abs(conversationDiv.scrollHeight - conversationDiv.scrollTop - conversationDiv.clientHeight) < 1;
+                            let autoScroll = isAtBottom;
+                            const scrollListener = () => {
+                                autoScroll = false;
+                                conversationDiv.removeEventListener('scroll', scrollListener);
+                            };
+                            conversationDiv.addEventListener('scroll', scrollListener);
+
+                            currentTypeInterval = setInterval(() => {
+                                if (i < fullResponse.length) {
+                                    textSpan.innerHTML = fullResponse.slice(0, i + 1) + '<span class="cursor"></span>';
+                                    i++;
+                                    if (autoScroll) scrollToBottom();
+                                } else {
+                                    clearInterval(currentTypeInterval);
+                                    currentTypeInterval = null;
+                                    aiMessage.innerHTML = `<div class="text">${marked.parse(fullResponse)}</div><span class="timestamp">${getTimestamp()}</span>`;
                                     sendButtonImg.src = '/static/img/arrow-dark.png';
                                     sendButtonImg.alt = 'Send';
+                                    if (autoScroll) scrollToBottom();
                                     userInput.focus();
-                                });
-                            });
+                                    document.getElementById('notification-sound').play();
+                                }
+                            }, 3);
                         } else {
                             textDiv.textContent = currentText;
                             messageDiv.appendChild(timestampSpan);
@@ -1136,7 +1395,7 @@
             sendButtonImg.alt = 'Send';
             scrollToBottom();
             modal.style.display = 'none';
-            setWelcomeMessage(); // Reset welcome message on clear
+            setWelcomeMessage();
             initialInput.focus();
         }
 
@@ -1156,25 +1415,33 @@
                 clearBtnImg.src = '/static/img/new-light.png';
                 helpBtnImg.src = '/static/img/help-light.png';
                 document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-light.png');
+                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
+                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
             } else {
                 document.documentElement.setAttribute('data-theme', 'light');
                 localStorage.setItem('theme', 'light');
                 clearBtnImg.src = '/static/img/new-dark.png';
                 helpBtnImg.src = '/static/img/help-dark.png';
                 document.querySelectorAll('.edit-btn img').forEach(img => img.src = '/static/img/edit-dark.png');
+                document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
+                document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
             }
             updateNavbarBorderPosition();
         });
-
+        
         const currentTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         if (currentTheme === 'dark') {
             themeToggle.classList.add('theme-toggle--toggled');
             clearBtnImg.src = '/static/img/new-light.png';
             helpBtnImg.src = '/static/img/help-light.png';
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-light.png';
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-light.png';
         } else {
             clearBtnImg.src = '/static/img/new-dark.png';
             helpBtnImg.src = '/static/img/help-dark.png';
+            document.querySelector('#prev-verse .verse-arrow').src = '/static/img/left-arrow-dark.png';
+            document.querySelector('#next-verse .verse-arrow').src = '/static/img/right-arrow-dark.png';
         }
 
         helpBtn.addEventListener('click', () => {
@@ -1191,7 +1458,7 @@
         window.addEventListener('resize', updateNavbarBorderPosition);
 
         scrollToBottom();
-        setWelcomeMessage(); // Set initial welcome message
+        setWelcomeMessage();
 
         window.addEventListener('load', () => {
             setTimeout(() => {
