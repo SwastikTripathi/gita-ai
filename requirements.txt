@@ -1,5 +1,4 @@
 flask
 pandas
 numpy
-huggingface_hub
 requests
