@@ -10,6 +10,17 @@ import string
 # Initialize Flask app
 app = Flask(__name__)
 
+from flask import send_from_directory
+
+@app.route('/')
+def serve_index():
+    return send_from_directory('../static', 'index.html')
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('../static', path)
+    
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
