@@ -12,13 +12,15 @@ app = Flask(__name__)
 
 from flask import send_from_directory
 
+from flask import send_from_directory
+
 @app.route('/')
 def serve_index():
-    return send_from_directory('../static', 'index.html')
+    return send_from_directory(os.path.join(BASE_DIR, '../static'), 'index.html')
 
 @app.route('/static/<path:path>')
 def serve_static(path):
-    return send_from_directory('../static', path)
+    return send_from_directory(os.path.join(BASE_DIR, '../static'), path)
     
 
 # Configure logging
