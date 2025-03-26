@@ -65,7 +65,7 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         'Authorization': f"Bearer {ARLIAI_API_KEY}"
     }
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=8)
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=300)
         response.raise_for_status()
         response_json = response.json()
         generated_text = response_json["choices"][0]["message"]["content"]
