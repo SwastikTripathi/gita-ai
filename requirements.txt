@@ -1,5 +1,5 @@
 flask
 pandas
 numpy
-sentence-transformers
+huggingface_hub
 requests
