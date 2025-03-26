@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
 import requests
 import os
 import logging
@@ -23,22 +23,25 @@ if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
+# Load Hugging Face API key from environment variable
+HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable is not set")
+client = InferenceClient(token=HF_API_KEY)
+
 # Load data with absolute paths
 BASE_DIR = os.path.dirname(__file__)
-gita_df = pd.read_csv(os.path.join(BASE_DIR, 'bhagwad_gita.csv'))
-verse_embeddings = np.load(os.path.join(BASE_DIR, 'verse_embeddings.npy'))
-with open(os.path.join(BASE_DIR, 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
-    pre_saved_data = json.load(f)
-pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
-pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
-pre_saved_embeddings = np.load(os.path.join(BASE_DIR, 'pre_saved_embeddings.npy'))
-
-# Load SentenceTransformer model (only for queries)
 try:
-    st_model = SentenceTransformer('all-MiniLM-L6-v2')
-except Exception as e:
-    logger.error(f"Failed to load SentenceTransformer model: {str(e)}")
-    st_model = None
+    gita_df = pd.read_csv(os.path.join(BASE_DIR, 'bhagwad_gita.csv'))
+    verse_embeddings = np.load(os.path.join(BASE_DIR, 'verse_embeddings.npy'))
+    with open(os.path.join(BASE_DIR, 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
+        pre_saved_data = json.load(f)
+    pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
+    pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
+    pre_saved_embeddings = np.load(os.path.join(BASE_DIR, 'pre_saved_embeddings.npy'))
+except FileNotFoundError as e:
+    logger.error(f"Error loading data files: {str(e)}")
+    raise
 
 # In-memory conversation storage
 conversation_history = {}
@@ -73,20 +76,26 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         raise
 
 def get_most_relevant_verse(query):
-    """Return the most relevant verse row based on precomputed embeddings."""
-    if st_model is None:
-        logger.warning(f"Fallback to random verse for query '{query}' due to SentenceTransformer failure")
-        return gita_df.sample(n=1).iloc[0]
-    
+    """Return the most relevant verse row based on precomputed embeddings using Hugging Face API."""
     try:
-        query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+        # Get query embedding from Hugging Face Inference API
+        raw_embedding = client.feature_extraction(
+            text=query,
+            model="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        query_embedding = np.array(raw_embedding).flatten()  # Ensure shape is (384,)
+        if query_embedding.shape[0] != 384:
+            logger.error(f"Expected query embedding shape (384,), got {query_embedding.shape}")
+            return gita_df.sample(n=1).iloc[0]  # Fallback to random verse
+        
+        # Compute cosine similarity
         similarities = np.dot(verse_embeddings, query_embedding) / (
-            np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding)
+            np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
         )
         most_similar_idx = np.argmax(similarities)
         return gita_df.iloc[most_similar_idx]
     except Exception as e:
-        logger.error(f"Error encoding query '{query}' with SentenceTransformer: {str(e)}")
+        logger.warning(f"Error getting query embedding for '{query}': {str(e)}. Falling back to random verse.")
         return gita_df.sample(n=1).iloc[0]
 
 def is_guidance_query(query):
@@ -136,11 +145,19 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        if st_model is not None:
-            try:
-                query_embedding = st_model.encode([query], convert_to_tensor=False)[0]
+        # Check pre-saved answers using Hugging Face API
+        try:
+            raw_embedding = client.feature_extraction(
+                text=query,
+                model="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            query_embedding = np.array(raw_embedding).flatten()
+            if query_embedding.shape[0] != 384:
+                logger.error(f"Expected query embedding shape (384,), got {query_embedding.shape}")
+                formatted_response = None
+            else:
                 similarities = np.dot(pre_saved_embeddings, query_embedding) / (
-                    np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding)
+                    np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
                 )
                 max_similarity = np.max(similarities)
                 if max_similarity > 0.8:
@@ -149,11 +166,8 @@ def chat():
                     logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
                 else:
                     formatted_response = None
-            except Exception as e:
-                logger.error(f"Error encoding query '{query}' with SentenceTransformer: {str(e)}")
-                formatted_response = None
-        else:
-            logger.warning(f"Skipping pre-saved answer check due to SentenceTransformer failure")
+        except Exception as e:
+            logger.warning(f"Error checking pre-saved answers for '{query}': {str(e)}. Skipping to next step.")
             formatted_response = None
 
         if formatted_response is None:
