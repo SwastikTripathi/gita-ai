@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
-from huggingface_hub import InferenceClient
 import requests
 import os
 import logging
 import json
+import string
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -23,25 +23,36 @@ if not ARLIAI_API_KEY:
     raise ValueError("ARLIAI_API_KEY environment variable is not set")
 API_URL = "https://api.arliai.com/v1/chat/completions"
 
-# Load Hugging Face API key from environment variable
-HF_API_KEY = os.environ.get("HF_API_KEY")
-if not HF_API_KEY:
-    raise ValueError("HF_API_KEY environment variable is not set")
-client = InferenceClient(token=HF_API_KEY)
+
+
+def tokenize(text):
+    """Tokenize text into a set of lowercase words, removing punctuation."""
+    text = text.lower()
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    return set(text.split())
+
+def jaccard_similarity(set1, set2):
+    """Compute Jaccard similarity between two sets of words."""
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    return intersection / union if union != 0 else 0
+
 
 # Load data with absolute paths
 BASE_DIR = os.path.dirname(__file__)
 try:
     gita_df = pd.read_csv(os.path.join(BASE_DIR, 'bhagwad_gita.csv'))
-    verse_embeddings = np.load(os.path.join(BASE_DIR, 'verse_embeddings.npy'))
     with open(os.path.join(BASE_DIR, 'pre_saved_answers.json'), 'r', encoding='utf-8') as f:
         pre_saved_data = json.load(f)
     pre_saved_questions = [item['question'] for item in pre_saved_data['questions']]
     pre_saved_answers = [item['answer'] for item in pre_saved_data['questions']]
-    pre_saved_embeddings = np.load(os.path.join(BASE_DIR, 'pre_saved_embeddings.npy'))
 except FileNotFoundError as e:
     logger.error(f"Error loading data files: {str(e)}")
     raise
+
+# Pre-tokenize pre-saved questions and verse meanings
+pre_saved_question_sets = [tokenize(question) for question in pre_saved_questions]
+verse_meaning_sets = [tokenize(meaning) for meaning in gita_df['EngMeaning']]
 
 # In-memory conversation storage
 conversation_history = {}
@@ -76,27 +87,15 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         raise
 
 def get_most_relevant_verse(query):
-    """Return the most relevant verse row based on precomputed embeddings using Hugging Face API."""
-    try:
-        # Get query embedding from Hugging Face Inference API
-        raw_embedding = client.feature_extraction(
-            text=query,
-            model="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        query_embedding = np.array(raw_embedding).flatten()  # Ensure shape is (384,)
-        if query_embedding.shape[0] != 384:
-            logger.error(f"Expected query embedding shape (384,), got {query_embedding.shape}")
-            return gita_df.sample(n=1).iloc[0]  # Fallback to random verse
-        
-        # Compute cosine similarity
-        similarities = np.dot(verse_embeddings, query_embedding) / (
-            np.linalg.norm(verse_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
-        )
-        most_similar_idx = np.argmax(similarities)
-        return gita_df.iloc[most_similar_idx]
-    except Exception as e:
-        logger.warning(f"Error getting query embedding for '{query}': {str(e)}. Falling back to random verse.")
-        return gita_df.sample(n=1).iloc[0]
+    """Return the most relevant verse based on keyword matching."""
+    query_set = tokenize(query)
+    similarities = [jaccard_similarity(query_set, v_set) for v_set in verse_meaning_sets]
+    if similarities:
+        most_similar_idx = similarities.index(max(similarities))
+    else:
+        most_similar_idx = np.random.randint(len(gita_df))  # Fallback if no similarities
+    return gita_df.iloc[most_similar_idx]
+
 
 def is_guidance_query(query):
     """Determine if the user's query is seeking guidance, advice, or wisdom."""
@@ -118,8 +117,6 @@ def get_guidance_response(query):
     )
     
     response = generate_text(prompt, max_new_tokens=500)
-    logger.info(f"Raw AI response for guidance query '{query}':\n{response}")
-    
     parts = [part.strip() for part in response.split('000')]
     empathy = parts[0] if len(parts) == 2 else "I understand that you might be feeling uncertain or seeking guidance. Many people experience similar challenges in their lives."
     explanation = parts[1] if len(parts) == 2 else response.strip()
@@ -145,31 +142,20 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        # Check pre-saved answers using Hugging Face API
-        try:
-            raw_embedding = client.feature_extraction(
-                text=query,
-                model="sentence-transformers/all-MiniLM-L6-v2"
-            )
-            query_embedding = np.array(raw_embedding).flatten()
-            if query_embedding.shape[0] != 384:
-                logger.error(f"Expected query embedding shape (384,), got {query_embedding.shape}")
-                formatted_response = None
-            else:
-                similarities = np.dot(pre_saved_embeddings, query_embedding) / (
-                    np.linalg.norm(pre_saved_embeddings, axis=1) * np.linalg.norm(query_embedding) + 1e-8
-                )
-                max_similarity = np.max(similarities)
-                if max_similarity > 0.8:
-                    most_similar_idx = np.argmax(similarities)
-                    formatted_response = pre_saved_answers[most_similar_idx]
-                    logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
-                else:
-                    formatted_response = None
-        except Exception as e:
-            logger.warning(f"Error checking pre-saved answers for '{query}': {str(e)}. Skipping to next step.")
+        # Tokenize the user's query
+        query_set = tokenize(query)
+
+        # Check pre-saved answers using Jaccard similarity
+        similarities = [jaccard_similarity(query_set, q_set) for q_set in pre_saved_question_sets]
+        max_similarity = max(similarities) if similarities else 0
+        if max_similarity > 0.5:  # Threshold for a match
+            most_similar_idx = similarities.index(max_similarity)
+            formatted_response = pre_saved_answers[most_similar_idx]
+            logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
+        else:
             formatted_response = None
 
+        # If no pre-saved answer matches, proceed with guidance or Arliai generation
         if formatted_response is None:
             if is_guidance_query(query):
                 formatted_response = get_guidance_response(query)
@@ -178,12 +164,12 @@ def chat():
                     f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                     "Format your response in Markdown for best readability."
                 )
-                formatted_response = generate_text(prompt, max_new_tokens=100).strip()
+                formatted_response = generate_text(prompt, max_new_tokens=100)
 
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
         return jsonify({"response": formatted_response, "id": ai_id})
-    
+
     except Exception as e:
         logger.error(f"Error in /api/chat endpoint: {str(e)}")
         fallback_response = "I’m having trouble generating a response right now. Please try again later."
@@ -191,6 +177,7 @@ def chat():
         if 'user_id' in locals():
             conversation_history[ai_id] = {"role": "ai", "content": fallback_response}
         return jsonify({"response": fallback_response, "id": ai_id}), 500
+        
 
 @app.route('/api/random_verse', methods=['GET'])
 def random_verse():
