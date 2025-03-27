@@ -10,19 +10,6 @@ import string
 # Initialize Flask app
 app = Flask(__name__)
 
-from flask import send_from_directory
-
-from flask import send_from_directory
-
-@app.route('/')
-def serve_index():
-    return send_from_directory(os.path.join(BASE_DIR, '../static'), 'index.html')
-
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory(os.path.join(BASE_DIR, '../static'), path)
-    
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,11 +17,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load ARLIAI API key from environment variable
-ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
-if not ARLIAI_API_KEY:
-    raise ValueError("ARLIAI_API_KEY environment variable is not set")
-API_URL = "https://api.arliai.com/v1/chat/completions"
+# Load Hugging Face API key securely from an environment variable; fallback to provided key
+HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable is not set")
+client = InferenceClient(token=HF_API_KEY)
 
 
 
@@ -71,32 +58,23 @@ verse_meaning_sets = [tokenize(meaning) for meaning in gita_df['EngMeaning']]
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
-    """Calls the Arliai API and returns the generated text."""
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        "max_tokens": max_new_tokens,
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "frequency_penalty": 1.1,
-        "stream": False
-    }
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f"Bearer {ARLIAI_API_KEY}"
-    }
+    """
+    Calls the Hugging Face Inference API and returns the generated text.
+    """
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=300)
-        response.raise_for_status()
-        response_json = response.json()
-        generated_text = response_json["choices"][0]["message"]["content"]
-        logger.info(f"API response for model '{model}': {generated_text}")
-        return generated_text.strip()
+        response = client.text_generation(
+            prompt=prompt,
+            model=model,
+            max_new_tokens=max_new_tokens,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.1,
+            return_full_text=False
+        )
+        logger.info(f"HF API response for model '{model}': {response}")
+        return response.strip()
     except Exception as e:
-        logger.error(f"Error generating text with Arliai API: {str(e)}")
+        logger.error(f"Error generating text with Hugging Face API: {str(e)}")
         raise
 
 def get_most_relevant_verse(query):
