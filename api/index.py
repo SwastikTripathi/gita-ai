@@ -1,11 +1,10 @@
 from flask import Flask, request, jsonify
 import pandas as pd
-import numpy as np
-import requests
 import os
 import logging
 import json
 import string
+from huggingface_hub import InferenceClient
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -23,6 +22,13 @@ if not HF_API_KEY:
     raise ValueError("HF_API_KEY environment variable is not set")
 client = InferenceClient(token=HF_API_KEY)
 
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_static(path):
+    if not path or path == 'index.html':
+        return app.send_static_file('index.html')
+    return app.send_static_file(path)
 
 
 def tokenize(text):
@@ -77,14 +83,12 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
         logger.error(f"Error generating text with Hugging Face API: {str(e)}")
         raise
 
+
 def get_most_relevant_verse(query):
     """Return the most relevant verse based on keyword matching."""
     query_set = tokenize(query)
     similarities = [jaccard_similarity(query_set, v_set) for v_set in verse_meaning_sets]
-    if similarities:
-        most_similar_idx = similarities.index(max(similarities))
-    else:
-        most_similar_idx = np.random.randint(len(gita_df))  # Fallback if no similarities
+    most_similar_idx = similarities.index(max(similarities)) if similarities else 0
     return gita_df.iloc[most_similar_idx]
 
 
