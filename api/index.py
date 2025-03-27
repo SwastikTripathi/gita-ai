@@ -1,13 +1,27 @@
 from flask import Flask, request, jsonify
 import pandas as pd
+import numpy as np
+import requests
 import os
 import logging
 import json
 import string
-from huggingface_hub import InferenceClient
 
 # Initialize Flask app
 app = Flask(__name__)
+
+from flask import send_from_directory
+
+from flask import send_from_directory
+
+@app.route('/')
+def serve_index():
+    return send_from_directory(os.path.join(BASE_DIR, '../static'), 'index.html')
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory(os.path.join(BASE_DIR, '../static'), path)
+    
 
 # Configure logging
 logging.basicConfig(
@@ -16,19 +30,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load Hugging Face API key securely from an environment variable; fallback to provided key
-HF_API_KEY = os.environ.get("HF_API_KEY")
-if not HF_API_KEY:
-    raise ValueError("HF_API_KEY environment variable is not set")
-client = InferenceClient(token=HF_API_KEY)
+# Load ARLIAI API key from environment variable
+ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
+if not ARLIAI_API_KEY:
+    raise ValueError("ARLIAI_API_KEY environment variable is not set")
+API_URL = "https://api.arliai.com/v1/chat/completions"
 
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_static(path):
-    if not path or path == 'index.html':
-        return app.send_static_file('index.html')
-    return app.send_static_file(path)
 
 
 def tokenize(text):
@@ -64,31 +71,42 @@ verse_meaning_sets = [tokenize(meaning) for meaning in gita_df['EngMeaning']]
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
-    """
-    Calls the Hugging Face Inference API and returns the generated text.
-    """
+    """Calls the Arliai API and returns the generated text."""
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": max_new_tokens,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "frequency_penalty": 1.1,
+        "stream": False
+    }
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f"Bearer {ARLIAI_API_KEY}"
+    }
     try:
-        response = client.text_generation(
-            prompt=prompt,
-            model=model,
-            max_new_tokens=max_new_tokens,
-            temperature=0.7,
-            top_p=0.9,
-            repetition_penalty=1.1,
-            return_full_text=False
-        )
-        logger.info(f"HF API response for model '{model}': {response}")
-        return response.strip()
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=300)
+        response.raise_for_status()
+        response_json = response.json()
+        generated_text = response_json["choices"][0]["message"]["content"]
+        logger.info(f"API response for model '{model}': {generated_text}")
+        return generated_text.strip()
     except Exception as e:
-        logger.error(f"Error generating text with Hugging Face API: {str(e)}")
+        logger.error(f"Error generating text with Arliai API: {str(e)}")
         raise
-
 
 def get_most_relevant_verse(query):
     """Return the most relevant verse based on keyword matching."""
     query_set = tokenize(query)
     similarities = [jaccard_similarity(query_set, v_set) for v_set in verse_meaning_sets]
-    most_similar_idx = similarities.index(max(similarities)) if similarities else 0
+    if similarities:
+        most_similar_idx = similarities.index(max(similarities))
+    else:
+        most_similar_idx = np.random.randint(len(gita_df))  # Fallback if no similarities
     return gita_df.iloc[most_similar_idx]
 
 

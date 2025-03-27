@@ -1,4 +1,5 @@
 flask
 pandas
-huggingface_hub
-gunicorn
+numpy
+requests
+gunicorn  # Added for production server
