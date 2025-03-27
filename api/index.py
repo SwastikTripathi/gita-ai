@@ -65,13 +65,18 @@ def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_
             temperature=0.7,
             top_p=0.9,
             repetition_penalty=1.1,
-            return_full_text=False
+            return_full_text=False,
+            timeout=90  # Add a timeout of 30 seconds
         )
         logger.info(f"HF API response for model '{model}': {response}")
         return response.strip()
     except Exception as e:
         logger.error(f"Error generating text with Hugging Face API: {str(e)}")
-        raise
+        fallback_message = (
+            "Oops, response timed out. As this is a prototype, sometimes a large number of users delay the responses. "
+            "Please try some time later. You can also support this app from the coffee button on the bottom right."
+        )
+        return fallback_message  # Return fallback instead of raising an exception
 
 def get_most_relevant_verse(query):
     """Return the most relevant verse based on keyword matching."""
@@ -148,7 +153,10 @@ def chat():
 
     except Exception as e:
         logger.error(f"Error in /api/chat endpoint: {str(e)}")
-        fallback_response = "I’m having trouble generating a response right now. Please try again later."
+        fallback_response = (
+            "Oops, response timed out. As this is a prototype, sometimes a large number of users delay the responses. "
+            "Please try some time later. You can also support this app from the coffee button on the bottom right."
+        )
         ai_id = f"ai_{user_id if 'user_id' in locals() else 'unknown'}"
         if 'user_id' in locals():
             conversation_history[ai_id] = {"role": "ai", "content": fallback_response}
