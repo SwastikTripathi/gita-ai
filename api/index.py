@@ -6,6 +6,7 @@ import logging
 import json
 import string
 from huggingface_hub import InferenceClient
+import datetime
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -128,6 +129,29 @@ def chat():
         if not query or not user_id:
             return jsonify({"error": "No message or ID provided"}), 400
 
+        # Save the user prompt to a file
+        prompt_entry = {
+            "user_id": user_id,
+            "query": query,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        prompt_file = os.path.join(BASE_DIR, 'user_prompts.json')
+        try:
+            # Load existing prompts or initialize an empty list
+            if os.path.exists(prompt_file):
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    prompts = json.load(f)
+            else:
+                prompts = []
+            # Append new prompt
+            prompts.append(prompt_entry)
+            # Save back to file
+            with open(prompt_file, 'w', encoding='utf-8') as f:
+                json.dump(prompts, f, indent=4)
+            logger.info(f"Saved prompt from user '{user_id}' to {prompt_file}")
+        except Exception as e:
+            logger.error(f"Error saving prompt to file: {str(e)}")
+            
         conversation_history[user_id] = {"role": "user", "content": query}
 
         query_set = tokenize(query)
