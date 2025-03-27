@@ -817,7 +817,7 @@
     </button>
 
     <div id="sliding-menu" class="sliding-menu">
-        <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee</a>? I would love to hear your response</p>
+        <p style="font-size: 12px;">Hare Krishna, did you gain any peace? This is a project I'm working on and improving regularly—if it helped, maybe <a href="https://buymeacoffee.com/not.a.toaster" target="_blank">buy me a coffee?</a> I would love to hear your response</p>
     </div>
 
     <script>
@@ -1008,7 +1008,7 @@
     async function sendMessage(messageSource = 'user') {
         const totalPromptCount = parseInt(localStorage.getItem('totalPromptCount')) || 0;
         if (totalPromptCount >= 5) {
-            const limitMessage = "Wow, you’ve been exploring a lot! This prototype stops at five prompts, but there’s so much more to share. Better Ai answers, faster responses, and so many other things! If you’ve liked it and want to help bring this app to others, you can support the project via the <a href='https://buymeacoffee.com/not.a.toaster' target='_blank'>link</a>—let’s make it happen together!";
+            const limitMessage = "Wow, you’ve been exploring a lot! This prototype stops at five prompts, but there’s so much more to share. Better Ai answers, faster responses, and so many other things! If you’ve liked it and want to help bring this app to others, you can support the project via <a href='https://buymeacoffee.com/not.a.toaster' target='_blank'>this link</a> —let’s make it happen together!";
             const aiMessageWrapper = document.createElement('div');
             aiMessageWrapper.className = 'message-wrapper ai';
             aiMessageWrapper.innerHTML = `
@@ -1463,7 +1463,7 @@
             limitMessage.style.color = 'var(--text-color)';
             limitMessage.style.width = '70%';
             limitMessage.style.marginTop = '10px';
-            limitMessage.innerHTML = "Wow, you’ve been exploring a lot! This prototype stops at five prompts, but there’s so much more to share. Better Ai answers, faster responses, and so many other things! If you’ve liked it and want to help bring this app to others, you can support the project via the <a href='https://buymeacoffee.com/not.a.toaster' target='_blank'>link</a>—let’s make it happen together!";
+            limitMessage.innerHTML = "Wow, you’ve been exploring a lot! This prototype stops at five prompts, but there’s so much more to share. Better Ai answers, faster responses, and so many other things! If you’ve liked it and want to help bring this app to others, you can support the project via <a href='https://buymeacoffee.com/not.a.toaster' target='_blank'>this link</a> —let’s make it happen together!";
     
             // Get the <a> element after setting innerHTML
             const link = limitMessage.querySelector('a');
