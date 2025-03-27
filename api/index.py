@@ -55,7 +55,7 @@ verse_meaning_sets = [tokenize(meaning) for meaning in gita_df['EngMeaning']]
 # In-memory conversation storage
 conversation_history = {}
 
-def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
+def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=256):
     """Calls the Hugging Face Inference API and returns the generated text."""
     try:
         response = client.text_generation(
@@ -99,7 +99,7 @@ def get_guidance_response(query):
         "Then give a detailed explanation that relates the verse to the user's query, including modern-day examples. Use simple English.\n"
     )
     
-    response = generate_text(prompt, max_new_tokens=500)
+    response = generate_text(prompt, max_new_tokens=256)
     parts = [part.strip() for part in response.split('000')]
     empathy = parts[0] if len(parts) == 2 else "I understand that you might be feeling uncertain or seeking guidance. Many people experience similar challenges in their lives."
     explanation = parts[1] if len(parts) == 2 else response.strip()
