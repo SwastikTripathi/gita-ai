@@ -1,27 +1,14 @@
+# api/index.py
 from flask import Flask, request, jsonify
 import pandas as pd
-import numpy as np
-import requests
 import os
 import logging
 import json
 import string
+from huggingface_hub import InferenceClient
 
 # Initialize Flask app
 app = Flask(__name__)
-
-from flask import send_from_directory
-
-from flask import send_from_directory
-
-@app.route('/')
-def serve_index():
-    return send_from_directory(os.path.join(BASE_DIR, '../static'), 'index.html')
-
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory(os.path.join(BASE_DIR, '../static'), path)
-    
 
 # Configure logging
 logging.basicConfig(
@@ -30,14 +17,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load ARLIAI API key from environment variable
-ARLIAI_API_KEY = os.environ.get("ARLIAI_API_KEY")
-if not ARLIAI_API_KEY:
-    raise ValueError("ARLIAI_API_KEY environment variable is not set")
-API_URL = "https://api.arliai.com/v1/chat/completions"
+# Load Hugging Face API key from environment variable
+HF_API_KEY = os.environ.get("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY environment variable is not set")
+client = InferenceClient(token=HF_API_KEY)
 
-
-
+# Tokenization and Jaccard similarity functions
 def tokenize(text):
     """Tokenize text into a set of lowercase words, removing punctuation."""
     text = text.lower()
@@ -49,7 +35,6 @@ def jaccard_similarity(set1, set2):
     intersection = len(set1.intersection(set2))
     union = len(set1.union(set2))
     return intersection / union if union != 0 else 0
-
 
 # Load data with absolute paths
 BASE_DIR = os.path.dirname(__file__)
@@ -71,44 +56,29 @@ verse_meaning_sets = [tokenize(meaning) for meaning in gita_df['EngMeaning']]
 conversation_history = {}
 
 def generate_text(prompt, model="mistralai/Mixtral-8x7B-Instruct-v0.1", max_new_tokens=500):
-    """Calls the Arliai API and returns the generated text."""
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        "max_tokens": max_new_tokens,
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "frequency_penalty": 1.1,
-        "stream": False
-    }
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f"Bearer {ARLIAI_API_KEY}"
-    }
+    """Calls the Hugging Face Inference API and returns the generated text."""
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=300)
-        response.raise_for_status()
-        response_json = response.json()
-        generated_text = response_json["choices"][0]["message"]["content"]
-        logger.info(f"API response for model '{model}': {generated_text}")
-        return generated_text.strip()
+        response = client.text_generation(
+            prompt=prompt,
+            model=model,
+            max_new_tokens=max_new_tokens,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.1,
+            return_full_text=False
+        )
+        logger.info(f"HF API response for model '{model}': {response}")
+        return response.strip()
     except Exception as e:
-        logger.error(f"Error generating text with Arliai API: {str(e)}")
+        logger.error(f"Error generating text with Hugging Face API: {str(e)}")
         raise
 
 def get_most_relevant_verse(query):
     """Return the most relevant verse based on keyword matching."""
     query_set = tokenize(query)
     similarities = [jaccard_similarity(query_set, v_set) for v_set in verse_meaning_sets]
-    if similarities:
-        most_similar_idx = similarities.index(max(similarities))
-    else:
-        most_similar_idx = np.random.randint(len(gita_df))  # Fallback if no similarities
+    most_similar_idx = similarities.index(max(similarities)) if similarities else 0
     return gita_df.iloc[most_similar_idx]
-
 
 def is_guidance_query(query):
     """Determine if the user's query is seeking guidance, advice, or wisdom."""
@@ -155,21 +125,14 @@ def chat():
 
         conversation_history[user_id] = {"role": "user", "content": query}
 
-        # Tokenize the user's query
         query_set = tokenize(query)
-
-        # Check pre-saved answers using Jaccard similarity
         similarities = [jaccard_similarity(query_set, q_set) for q_set in pre_saved_question_sets]
         max_similarity = max(similarities) if similarities else 0
-        if max_similarity > 0.5:  # Threshold for a match
+        if max_similarity > 0.5:
             most_similar_idx = similarities.index(max_similarity)
             formatted_response = pre_saved_answers[most_similar_idx]
             logger.info(f"Using pre-saved answer for query '{query}' with similarity {max_similarity}")
         else:
-            formatted_response = None
-
-        # If no pre-saved answer matches, proceed with guidance or Arliai generation
-        if formatted_response is None:
             if is_guidance_query(query):
                 formatted_response = get_guidance_response(query)
             else:
@@ -190,7 +153,6 @@ def chat():
         if 'user_id' in locals():
             conversation_history[ai_id] = {"role": "ai", "content": fallback_response}
         return jsonify({"response": fallback_response, "id": ai_id}), 500
-        
 
 @app.route('/api/random_verse', methods=['GET'])
 def random_verse():
@@ -231,7 +193,7 @@ def regenerate_after():
                 f"The user said: '{query}'. Respond in a concise, friendly manner without referencing the Bhagavad Gita. "
                 "Format your response in Markdown for best readability."
             )
-            formatted_response = generate_text(prompt, max_new_tokens=100).strip()
+            formatted_response = generate_text(prompt, max_new_tokens=100)
 
         ai_id = f"ai_{user_id}"
         conversation_history[ai_id] = {"role": "ai", "content": formatted_response}
@@ -250,6 +212,14 @@ def clear_conversation():
     except Exception as e:
         logger.error(f"Error in /api/clear endpoint: {str(e)}")
         return jsonify({"error": "Something went wrong"}), 500
+
+# Serve static files (e.g., index.html)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_static(path):
+    if not path or path == 'index.html':
+        return app.send_static_file('index.html')
+    return app.send_static_file(path)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
